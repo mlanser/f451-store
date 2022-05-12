@@ -11,133 +11,57 @@ import f451_store.utils as utils
 # =========================================================
 _DEFAULT_TEST_STRING_ = "DEFAULT_TEST_STRING"
 
-# _VALID_EMAIL_STRINGS_ = [
-#     "one@example.com",
-#     "two@example.com",
-#     "three@example.com",
-#     "first.last@example.com",
-#     "under_score@example.com",
-#     "beep@boop.io",
-#     "one+two@example.com",
-# ]
-#
-# _INVALID_EMAIL_STRINGS_ = [
-#     "",
-#     "one@example",
-#     "two.com",
-#     "three",
-#     "first.last.example.com",
-#     "under_score@example_com",
-#     "beep@boop@io",
-# ]
-#
-# _VALID_PHONE_STRINGS_ = [
-#     "+12125550000",
-#     "+112125551111",
-#     "+1112125552222",
-# ]
-#
-# _INVALID_PHONE_STRINGS_ = [
-#     "ABC",
-#     "+1 (212) 555-1111",
-#     "+1-212-555-2222",
-#     "+1-212-555",
-#     "+1-212",
-#     "12223334444",
-# ]
-#
-# _VALID_TWITTER_STRINGS_ = [
-#     "one",
-#     "twothree",
-#     "four_five",
-#     "six456789012345",
-# ]
-#
-# _INVALID_TWITTER_STRINGS_ = [
-#     "this_is_a_really_long_twitter_name",
-#     "one.two",
-#     "three@four",
-#     "first-last",
-#     "under+score",
-# ]
-
 _TRUE_VALUES_ = ["True", "trUe", "t", 1, "1", True]
 _FALSE_VALUES_ = ["False", "noTrue", "F", 0, "0", False]
 
 
-# @pytest.fixture()
-# def valid_channel_map():
-#     """Return valid channel map info."""
-#     return {
-#         "email": "f451_mailgun",
-#         "sms": "f451_twilio",
-#         "twitter": "f451_twitter",
-#         "slack": "f451_slack",
-#         "forums": "f451_slack",
-#     }
-
-
-# @pytest.fixture()
-# def mixed_email_address_list():
-#     """Return valid email address strings."""
-#     return _VALID_EMAIL_STRINGS_
+@pytest.fixture()
+def valid_service_map():
+    """Return valid service map info."""
+    return {
+        "json": "f451_json",
+        "csv": "f451_csv",
+        "sql": "f451_sqlite",
+    }
 
 
 # =========================================================
 #                T E S T   F U N C T I O N S
 # =========================================================
-# def test_process_key_value_map(valid_channel_map):
-#     """Test processing key-value maps."""
-#     expectedMap = valid_channel_map
-#     mapString = "email:f451_mailgun|sms:f451_twilio|twitter:f451_twitter|slack:f451_slack|forums:f451_slack"  # noqa: B950
-#     mapList = [
-#         "email:f451_mailgun",
-#         "sms:f451_twilio",
-#         "twitter:f451_twitter",
-#         "slack:f451_slack",
-#         "forums:f451_slack",
-#     ]
-#
-#     # Happy path
-#     processedMap = utils.process_key_value_map(mapString)
-#     assert processedMap == expectedMap
-#
-#     processedMap = utils.process_key_value_map(mapList)
-#     assert processedMap == expectedMap
-#
-#     # Not so happy paths
-#     mapList = ["email:", ":", "", "slack:f451_slack", "forums:f451_slack"]
-#     processedMap = utils.process_key_value_map(mapList)
-#     assert processedMap == {"slack": "f451_slack", "forums": "f451_slack"}
-#
-#     mapString = "email:f451_mailgun:sms:f451_twilio"
-#     processedMap = utils.process_key_value_map(mapString)
-#     assert processedMap == {"email": "f451_mailgun"}
-#
-#     mapString = "email:f451_mailgun:sms f451_twilio|twitter|f451_twitter|slack:f451_slack|:f451_slack"
-#     processedMap = utils.process_key_value_map(mapString)
-#     assert processedMap == {"email": "f451_mailgun", "slack": "f451_slack"}
+def test_process_key_value_map(valid_service_map):
+    """Test processing key-value maps."""
+    expectedMap = valid_service_map
+    mapString = "json:f451_json|csv:f451_csv|sql:f451_sqlite"
+    mapList = ["json:f451_json", "csv:f451_csv", "sql:f451_sqlite"]
+
+    # Happy path
+    processedMap = utils.process_key_value_map(mapString)
+    assert processedMap == expectedMap
+
+    processedMap = utils.process_key_value_map(mapList)
+    assert processedMap == expectedMap
+
+    # Not so happy paths
+    mapList = ["json:", ":", "", "csv:f451_csv", "sql:f451_sqlite"]
+    processedMap = utils.process_key_value_map(mapList)
+    assert processedMap == {"csv": "f451_csv", "sql": "f451_sqlite"}
+
+    mapString = "json:f451_json:csv:f451_csv"
+    processedMap = utils.process_key_value_map(mapString)
+    assert processedMap == {"json": "f451_json"}
+
+    mapString = "json:f451_json:csv f451_csv|abc|f451_abc|sql:f451_sqlite|:f451_sqlite"
+    processedMap = utils.process_key_value_map(mapString)
+    assert processedMap == {"json": "f451_json", "sql": "f451_sqlite"}
 
 
-# @pytest.mark.parametrize(
-#     "mapList", [[], [" ", ": ", ""], "email:", "email|f451_mailgun", ":|"]
-# )
-# def test_process_key_value_map_always_return_empty(mapList):
-#     """Test processing empty key-value maps."""
-#     processedMap = utils.process_key_value_map(mapList)
-#     assert processedMap == {}
-
-
-# @pytest.mark.parametrize("testData", _VALID_EMAIL_STRINGS_)
-# def test_is_valid_email_is_true(testData):
-#     """Test validating email address strings."""
-#     assert utils.is_valid_email(testData)
-
-
-# @pytest.mark.parametrize("testData", _INVALID_EMAIL_STRINGS_)
-# def test_is_valid_email_is_false(testData):
-#     """Test validating email address strings."""
-#     assert not utils.is_valid_email(testData)
+@pytest.mark.parametrize(
+    "mapList", [[], [" ", ": ", ""], "json:", "json|f451_json", ":|"]
+)
+def test_process_key_value_map_always_return_empty(mapList):
+    """Test processing empty key-value maps."""
+    processedMap = utils.process_key_value_map(mapList)
+    assert processedMap == {}
 
 
 # @pytest.mark.parametrize("testData", _VALID_PHONE_STRINGS_)
@@ -150,18 +74,6 @@ _FALSE_VALUES_ = ["False", "noTrue", "F", 0, "0", False]
 # def test_is_valid_phone_is_false(testData):
 #     """Test validating phone number strings."""
 #     assert not utils.is_valid_phone(testData)
-
-
-# @pytest.mark.parametrize("testData", _VALID_TWITTER_STRINGS_)
-# def test_is_valid_twitter_is_true(testData):
-#     """Test validating Twitter name strings."""
-#     assert utils.is_valid_twitter(testData)
-
-
-# @pytest.mark.parametrize("testData", _INVALID_TWITTER_STRINGS_)
-# def test_is_valid_twitter_is_false(testData):
-#     """Test validating Twitter name strings."""
-#     assert not utils.is_valid_twitter(testData)
 
 
 def test_convert_attrib_str_to_list():
