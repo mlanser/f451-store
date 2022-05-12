@@ -84,6 +84,13 @@ def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
         hook.write_text("\n".join(lines))
 
 
+@session(python="3.10")
+def black(session: Session) -> None:
+    """Run 'black' standalone."""
+    session.install("black")
+    session.run("black", ".", "src", "tests")
+
+
 @session(name="pre-commit", python="3.10")
 def precommit(session: Session) -> None:
     """Lint using pre-commit."""
