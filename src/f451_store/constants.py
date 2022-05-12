@@ -13,15 +13,15 @@ DELIM_VAL: str = ":"
 # =========================================================
 #    K E Y W O R D S   F O R   C O N F I G   F I L E S
 # =========================================================
-CHANNEL_ALL: str = "all"
-CHANNEL_MAIN: str = "f451_main"
-CHANNEL_SQLITE: str = "f451_sqlite"
+STORAGE_ALL: str = "all"
+STORAGE_MAIN: str = "f451_main"
+STORAGE_SQLITE: str = "f451_sqlite"
 
 KWD_DEBUG: str = "debug"  # Reserved
 KWD_LOG_LEVEL: str = "log_level"
 KWD_SUPPRESS_ERROR: str = "suppress_errors"
 KWD_TO: str = "to"
-KWD_TO_CHANNEL: str = "to_channel"
+KWD_TO_STORAGE: str = "to_storage"
 
 LOG_CRITICAL: str = "CRITICAL"
 LOG_DEBUG: str = "DEBUG"

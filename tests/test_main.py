@@ -1,6 +1,6 @@
 """Test cases for the '__main__' module."""
 import sys  # noqa: F401
-from configparser import ConfigParser
+from configparser import ConfigParser  # noqa: F401
 from inspect import currentframe  # noqa: F401
 from inspect import getframeinfo  # noqa: F401
 from unittest import mock  # noqa: F401
@@ -62,5 +62,3 @@ def test_main_show_version(capsys, kwd):
 
     assert e.type == SystemExit
     assert e.value.code == 0
-
-

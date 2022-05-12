@@ -1,15 +1,12 @@
 """Demo for using f451 Datastore module."""
 import argparse
 import logging
-import os
 import re
 import sys
 from configparser import ConfigParser
 from configparser import ExtendedInterpolation
 from pathlib import Path
 from typing import Any
-from typing import Dict
-from typing import List
 
 import konsole
 from faker import Faker
@@ -20,6 +17,11 @@ from rich.rule import Rule
 import f451_store.constants as const
 from . import __app_name__
 from . import __version__
+
+# import os
+# from typing import Dict
+# from typing import List
+
 # from f451_store.store import Store
 # from f451_store.exceptions import MissingAttributeError
 
@@ -46,9 +48,9 @@ _APP_ENV_SECRETS_: str = f"{_APP_NORMALIZED_}_SECRETS"
 #       secrets that should not go github), separately from 'safe' config
 #       values (i.e. info that is safe to share on github). But both types
 #       can also be stored in the same file.
-_APP_LOG_: str = "f451-comms.log"
-_APP_CONFIG_: str = "f451-comms.config.ini"
-_APP_SECRETS_: str = "f451-comms.secrets.ini"
+_APP_LOG_: str = "f451-store.log"
+_APP_CONFIG_: str = "f451-store.config.ini"
+_APP_SECRETS_: str = "f451-store.secrets.ini"
 
 
 # =========================================================
@@ -65,8 +67,8 @@ def init_cli_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog=__app_name__,
-        description=f"Send messages via 'f451 Communications' [v{__version__}] module",
-        epilog="NOTE: Only call a module if the corresponding service is installed",
+        description=f"Store data via 'f451 Datastore' [v{__version__}] module",
+        epilog="NOTE: Only call a module if the corresponding data storage is installed",
     )
 
     parser.add_argument(
@@ -77,18 +79,18 @@ def init_cli_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Run in debug mode")
     parser.add_argument(
-        "--channel",
+        "--storage",
         action="store",
-        default=const.CHANNEL_ALL,
+        default=const.STORAGE_SQLITE,
         type=str,
-        help="Communications channel(s) to use",
+        help="Data storage to use",
     )
     parser.add_argument(
-        "--msg",
+        "--data",
         action="store",
         default="Testing 'f451-comms' module -- <some random text>",
         type=str,
-        help="Text to send",
+        help="Data to store",
     )
     parser.add_argument(
         "--secrets",
@@ -296,5 +298,5 @@ def main(inArgs: Any = None) -> None:  # noqa: C901
 # =========================================================
 #            G L O B A L   C A T C H - A L L
 # =========================================================
-if __name__ == "__main__":
-    main()  # pragma: no cover
+# if __name__ == "__main__":
+#     main()  # pragma: no cover
