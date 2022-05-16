@@ -21,7 +21,7 @@ Faker = "^13.7.0"
 argparse = "^1.4.0"
 rich = "^12.2.0"
 konsole = "^0.6.0"
-types-requests = "^2.27.16"
+types-requests = "^2.27.26"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
