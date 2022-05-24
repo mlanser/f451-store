@@ -19,7 +19,7 @@ Changelog = "https://github.com/mlanser/f451-store/releases"
 python = "^3.8"
 Faker = "^13.7.0"
 argparse = "^1.4.0"
-rich = "^12.2.0"
+rich = "^12.4.4"
 konsole = "^0.6.0"
 types-requests = "^2.27.16"
 
