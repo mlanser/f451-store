@@ -1,1 +1,1 @@
-"""Test suite for the f451_store package."""
+"""Test suite for the f451 Datastore package."""

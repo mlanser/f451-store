@@ -22,29 +22,34 @@ argparse = "^1.4.0"
 rich = "^12.2.0"
 konsole = "^0.6.0"
 types-requests = "^2.27.16"
+requests = "^2.27.1"
+mysql-connector-python = "^8.0.29"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
+pytest-mock = "^3.7.0"
 coverage = {extras = ["toml"], version = "^6.1"}
 safety = "^1.10.3"
 mypy = "^0.950"
+nox = "^2022.1.7"
 typeguard = "^2.13.2"
 xdoctest = {extras = ["colors"], version = "^1.0.0"}
 sphinx = "^4.3.0"
 sphinx-autobuild = ">=2021.3.14"
+sphinx-rtd-theme = "^1.0.0"
+sphinx-click = "^4.0.3"
+sphinx-argparse-cli = "^1.8.3"
 pre-commit = "^2.15.0"
-flake8 = "^4.0.1"
 black = ">=21.10b0"
+flake8 = "^4.0.1"
 flake8-bandit = "^3.0.0"
 flake8-bugbear = "^22.4.25"
 flake8-docstrings = "^1.6.0"
 flake8-rst-docstrings = "^0.2.3"
-nox = "^2022.1.7"
 pep8-naming = "^0.12.1"
 darglint = "^1.8.1"
 reorder-python-imports = "^3.1.0"
 pre-commit-hooks = "^4.0.1"
-sphinx-click = "^4.0.3"
 Pygments = "^2.10.0"
 pyupgrade = "^2.29.1"
 furo = ">=2021.11.12"
@@ -83,18 +88,15 @@ show_error_context = true
 exclude = [
     '_temp_.*\.py',     # Don't run mypy on temp files
     'temp.*\.py',
+    '_OLD.*\.py',
     'conftest\.py',     # Don't run mypy on test files
     'test_.*\.py',
 ]
-[[tool.mypy.overrides]]
-module = [
-    "slack_sdk",
-    "tweepy",
-    "twilio",
-    "twilio.rest",
-    "twilio.base.exception",
-]
-ignore_missing_imports = true
+#[[tool.mypy.overrides]]
+#module = [
+#...
+#]
+#ignore_missing_imports = true
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

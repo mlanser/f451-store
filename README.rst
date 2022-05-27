@@ -54,6 +54,16 @@ Features
 
 * TODO
 
+Current support:
+
+* CSV
+* JSON
+* SQLite
+
+Future support:
+
+* Other
+
 .. features-start
 
 
