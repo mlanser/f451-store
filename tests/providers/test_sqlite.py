@@ -70,7 +70,7 @@ def test_connect_to_sqlite_data_file(
     assert str(sqliteDB.dbHost) == dbFName
     assert not len(set(sqliteDB.dataFields.keys()).difference(set(valid_field_map)))
     assert not len(set(sqliteDB.formatMap.keys()).difference(set(valid_format_map)))
-    assert dbConn is not None
+    assert sqliteDB.isConnectionOpen
 
     sqliteDB.connect_close(dbConn, True)
     assert not sqliteDB.isConnectionOpen
@@ -103,7 +103,8 @@ def test_connect_to_sqlite_w_create_set_to_false(
 ):
     """Test happy path with create and append flags set to 'False'.
 
-    Note: The 'append' and 'create' flags only affect tbales and not the actual db file.
+    Note: The 'append' and 'create' flags only affect tables and not
+          the actual db file.
     """
     dbFName = file_based_storage
     dbTable = valid_table_name
@@ -140,7 +141,7 @@ def test_connect_to_sqlite_fail_w_missing_dbtable(
     assert const.KWD_DB_TABLE in e.value.args[0]
 
 
-def test_create_sqlite_fail_w_invalid_data_fields(
+def test_connect_to_sqlite_fail_w_invalid_data_fields(
     in_memory_storage, valid_table_name, invalid_field_map, capsys, helpers
 ):
     """Fail creating SQLite object with invalid data fields."""
@@ -157,7 +158,8 @@ def test_create_table(
 ):
     """Test checking if table exists.
 
-    This test is using in-memory database and we need to ensure that database connection remains open.
+    Note: This test is using in-memory database, and we need
+          to ensure that database connection remains open.
     """
     dbFName = in_memory_storage
     dbTable = valid_table_name
@@ -186,7 +188,8 @@ def test_create_new_table_in_single_call(
 ):
     """Test checking if table exists.
 
-    This test is using in-memory database and we need to ensure that database connection remains open.
+    Note: This test is using in-memory database, and we need
+          to ensure that database connection remains open.
     """
     dbFName = in_memory_storage
     dbTable = valid_table_name
@@ -204,7 +207,11 @@ def test_create_new_table_in_single_call(
 def test_store_records(
     in_memory_storage, valid_table_name, valid_field_map, valid_data_row, capsys, helpers
 ):
-    """Test storing data to existing file."""
+    """Test storing data to existing file.
+
+    Note: This test is using in-memory database, and we need
+          to ensure that database connection remains open.
+    """
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_field_map, db_host=dbFName, db_table=dbTable)
@@ -231,7 +238,11 @@ def test_store_records_with_mixed_data_types(
     capsys,
     helpers,
 ):
-    """Test storing data with mixed data types to existing file."""
+    """Test storing data with mixed data types to existing file.
+
+    Note: This test is using in-memory database, and we need
+          to ensure that database connection remains open.
+    """
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_mixed_field_map, db_host=dbFName, db_table=dbTable)
@@ -253,7 +264,11 @@ def test_store_records_with_mixed_data_types(
 def test_count_records(
     in_memory_storage, valid_table_name, valid_field_map, valid_data_row, capsys, helpers
 ):
-    """Test counting data records in existing file."""
+    """Test counting data records in existing file.
+
+    Note: This test is using in-memory database, and we need
+          to ensure that database connection remains open.
+    """
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_field_map, db_host=dbFName, db_table=dbTable)
@@ -281,7 +296,11 @@ def test_retrieve_records(
     capsys,
     helpers,
 ):
-    """Test counting data records in existing file."""
+    """Test counting data records in existing file.
+
+    Note: This test is using in-memory database, and we need
+          to ensure that database connection remains open.
+    """
     keyFldName = key_fld_name
     dbFName = in_memory_storage
     dbTable = valid_table_name
@@ -331,6 +350,9 @@ def test_trim_records(
         3) Remove last/newest record
         4) Remove another 10 (oldest) records
         5) Remove another 10 (newest) records
+
+    Note: This test is using in-memory database, and we need
+          to ensure that database connection remains open.
     """
     keyFldName = key_fld_name
     dbFName = in_memory_storage

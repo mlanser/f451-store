@@ -38,6 +38,10 @@ FORMAT_MAP = {
     const.FMT_KWD_BOOL: 'NUMERIC',          # booleans (e.g. True|False, Yes|No, etc.)
 }
 
+typeDefConnector = Union[sqlite3.Connection, None]
+typeDefCursor = sqlite3.Cursor
+typeDefData = Union[List[Dict[str, Any]], Dict[str, Any]]
+
 
 # =========================================================
 #        M A I N   C L A S S   D E F I N I T I O N
@@ -76,7 +80,7 @@ class SQLite(sql.BaseSQL):
         """Return 'dbConn' property."""
         return self._dbConn is not None
 
-    def connect_open(self, force: Optional[bool] = False) -> Union[sqlite3.Connection, None]:
+    def connect_open(self, force: Optional[bool] = False) -> typeDefConnector:
         """Establish connection to SQLite database.
 
         Args:
@@ -99,17 +103,27 @@ class SQLite(sql.BaseSQL):
 
             except sqlite3.Error as e:
                 log.error(f"Unable to access {SRV_PROVIDER} database: '{str(self._dbHost)}'")
-                raise StorageConnectionError(message=f"Unable to connect to SQLite DB: '{self._dbHost}'", errors=[str(e)]) from e
+                raise StorageConnectionError(
+                    message=f"Unable to connect to SQLite DB: '{self._dbHost}'",
+                    errors=[str(e)]
+                ) from e
 
         return self._dbConn
 
-    def connect_close(self, dbConn: Union[sqlite3.Connection, None], force: Optional[bool] = True) -> None:
-        """Close connection to SQLite database."""
+    def connect_close(self, dbConn: typeDefConnector, force: Optional[bool] = True) -> None:
+        """Close connection to SQLite database.
+
+        Args:
+            dbConn:
+                'sqlite3.Connection' object
+            force:
+                If 'True' then we close any open connection and create new connection
+        """
         if force and dbConn is not None:
             dbConn.close()
             self._dbConn = None
 
-    def _has_table_helper(self, dbCur: sqlite3.Cursor, dbTable: Optional[str] = None) -> bool:
+    def _has_table_helper(self, dbCur: typeDefCursor, dbTable: Optional[str] = None) -> bool:
         """Helper method to check if given database table exists.
 
         SQLIte3 stores table names in the 'sqlite_master' table.
@@ -138,12 +152,12 @@ class SQLite(sql.BaseSQL):
 
     def _create_table_helper(
             self,
-            dbCur: sqlite3.Cursor,
+            dbCur: typeDefCursor,
             dbTable: Optional[str] = None,
             dataFields: Optional[Dict[str, str]] = None,
             formatMap: Optional[Dict[str, str]] = None
     ) -> None:
-        """Helper method to make a new table in a given database.
+        """Helper method to create a new table in an SQLite database.
 
         Args:
             dbCur:
@@ -199,12 +213,12 @@ class SQLite(sql.BaseSQL):
 
     def _store_records_helper(
             self,
-            dbCur: sqlite3.Cursor,
+            dbCur: typeDefCursor,
             data: List[Dict[str, Any]],
             dbTable: Optional[str] = None,
             dataFields: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Store data records in SQLite database.
+        """Helper method to store data records in an SQLite database.
 
         Args:
             dbCur:
@@ -215,6 +229,7 @@ class SQLite(sql.BaseSQL):
                 Name of database table
             dataFields:
                 Data fields
+
         Raises:
             StorageAccessError: If database table cannot be verified.
         """
@@ -238,8 +253,14 @@ class SQLite(sql.BaseSQL):
             log.error(f"Unable to store records in {SRV_PROVIDER} database: '{self._dbTable}'")
             raise StorageAccessError(SRV_PROVIDER) from e
 
-    def _count_records_helper(self, dbCur: sqlite3.Cursor, dbTable: Optional[str] = None) -> int:
-        """Count number of records in SQLite database.
+    def _count_records_helper(self, dbCur: typeDefCursor, dbTable: Optional[str] = None) -> int:
+        """Helper method to count number of records in an SQLite database.
+
+        Args:
+            dbCur:
+                DB cursor for current database connection
+            dbTable:
+                Name of database table
 
         Returns:
             Number of records in a table
@@ -264,21 +285,40 @@ class SQLite(sql.BaseSQL):
 
     def _retrieve_records_helper(
             self,
-            dbCur: sqlite3.Cursor,
+            dbCur: typeDefCursor,
             numRecs: int,
             newest: Optional[bool] = True,
             orderBy: Optional[str] = None,
             dbTable: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
+        """Helper method to retrieve records from an SQLite database.
 
+        Args:
+            dbCur:
+                DB cursor for current database connection
+            numRecs:
+                Number of records to retrieve
+            newest:
+                Select 'newest'/last items in sorted list
+            orderBy:
+                Name of data field to sort/order records by before selection
+            dbTable:
+                Name of database table
+
+        Returns:
+            List of selected records from a table
+
+        Raises:
+            StorageAccessError: If database table cannot be verified.
+        """
         tblName = self._dbTable if not dbTable else dbTable
         fldNames = self._dataFields.keys()
-        flds = ','.join("{!s}".format(key) for key in fldNames)
+        flds = ','.join(f"{key}" for key in fldNames)
         sortFld = list(fldNames)[0] if orderBy is None else orderBy
 
         try:
             if newest:
-                # Newest records
+                # Get 'newest' records -- we're not using f-strings here to improve readability
                 dbCur.execute("SELECT * FROM (SELECT {flds} FROM {tbl} {inner} LIMIT {limit}) {order}".format(
                     flds=flds,
                     tbl=tblName,
@@ -287,7 +327,7 @@ class SQLite(sql.BaseSQL):
                     order=create_orderby_param(sortFld)
                 ))
             else:
-                # Oldest records
+                # Get 'oldest' records -- we're not using f-strings here to improve readability
                 dbCur.execute('SELECT {flds} FROM {tbl} {order} LIMIT {limit}'.format(
                     flds=flds,
                     tbl=tblName,
@@ -309,116 +349,36 @@ class SQLite(sql.BaseSQL):
 
         return data
 
-    def has_table(self, dbTable: str, **kwargs: Any) -> bool:
-        """Public method to check if given table exists in current database.
-
-        Args:
-            dbTable:
-                Name of database table
-
-        Returns:
-            'True' if table exists.
-        """
-        closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        is_valid = self._has_table_helper(dbConn.cursor(), dbTable)
-        self.connect_close(dbConn, closeConn)
-        return is_valid
-
-    def create_table(self, dbTable: str, **kwargs: Any) -> None:
-        """Public method to create a new table with given set of fields.
-
-        Args:
-            dbTable:
-                Name of database table
-        """
-        closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
-
-        if not self._has_table_helper(dbCur, dbTable):
-            self._create_table_helper(dbCur, dbTable)
-            dbConn.commit()
-
-        self.connect_close(dbConn, closeConn)
-
-    def store_records(
-        self, inData: Union[List[Dict[str, Any]], Dict[str, Any]], **kwargs: Any
-    ) -> None:
-        """Store data records in SQLite database.
-
-        Args:
-            inData:
-                Data to be stored as single 'dict' or 'list' of 'dicts'
-        """
-        closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
-
-        # Ensure that we always handle a list of rows
-        data = inData if isinstance(inData, list) else [inData]
-
-        if not self._has_table_helper(dbCur):
-            self._create_table_helper(dbCur)
-            dbConn.commit()
-
-        self._store_records_helper(dbCur, data)
-        dbConn.commit()
-
-        self.connect_close(dbConn, closeConn)
-
-    def count_records(self, **kwargs: Any) -> int:
-        """Count number of records in SQLite database.
-
-        Returns:
-            Number of records in a table
-
-        Raises:
-            StorageAccessError: If database table cannot be verified.
-        """
-        closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
-
-        numRecs = self._count_records_helper(dbCur)
-
-        self.connect_close(dbConn, closeConn)
-        return numRecs
-
-    def retrieve_records(self, numRecs: int = 1, **kwargs: Any) -> List[Dict[str, Any]]:
-        """Retrieve data records from SQLite database.
-
-        Args:
-            numRecs:
-                Number of records to retrieve
-            kwargs:
-                'order_by'  - Field to sorted by
-                'first'     - If TRUE, retrieve first 'numRecs' records.
-                              Else retrieve last 'numRecs' records.
-        Returns:
-            List of records
-        """
-        orderBy = kwargs.get(const.KWD_ORDER_BY, None)
-        newest = kwargs.get(const.KWD_NEWEST, True)
-
-        closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
-
-        foundRecs = self._retrieve_records_helper(dbCur, numRecs, newest, orderBy)
-
-        self.connect_close(dbConn, closeConn)
-        return foundRecs
-
     def _trim_records_helper(
             self,
-            dbCur: sqlite3.Cursor,
+            dbCur: typeDefCursor,
             numRecs: int,
             newest: Optional[bool] = True,
             orderBy: Optional[str] = None,
             dbTable: Optional[str] = None,
     ) -> int:
+        """Helper method to trim records from an SQLite database.
 
+        This is essentially the opposite of retrieving records.
+
+        Args:
+            dbCur:
+                DB cursor for current database connection
+            numRecs:
+                Number of records to trim
+            newest:
+                Select 'newest'/last items in sorted list
+            orderBy:
+                Name of data field to sort/order records by before selection
+            dbTable:
+                Name of database table
+
+        Returns:
+            Number of deleted records
+
+        Raises:
+            StorageAccessError: If database table cannot be verified.
+        """
         tblName = self._dbTable if not dbTable else dbTable
         fldNames = self._dataFields.keys()
         sortFld = list(fldNames)[0] if orderBy is None else orderBy
@@ -439,6 +399,115 @@ class SQLite(sql.BaseSQL):
             raise StorageAccessError(SRV_PROVIDER) from e
 
         return len(delRecs)
+
+    def has_table(self, dbTable: str, **kwargs: Any) -> bool:
+        """Public method to check if given table exists in current database.
+
+        Args:
+            dbTable:
+                Name of database table
+            kwargs:
+                - 'close' -- close DB connection if 'True'
+
+        Returns:
+            'True' if table exists.
+        """
+        closeConn = kwargs.get(const.KWD_CLOSE, True)
+        dbConn = self.connect_open()
+        is_valid = self._has_table_helper(dbConn.cursor(), dbTable)
+        self.connect_close(dbConn, closeConn)
+        return is_valid
+
+    def create_table(self, dbTable: str, **kwargs: Any) -> None:
+        """Public method to create a new table with given set of fields.
+
+        Args:
+            dbTable:
+                Name of database table
+            kwargs:
+                - 'close' -- close DB connection if 'True'
+        """
+        closeConn = kwargs.get(const.KWD_CLOSE, True)
+        dbConn = self.connect_open()
+        dbCur = dbConn.cursor()
+
+        if not self._has_table_helper(dbCur, dbTable):
+            self._create_table_helper(dbCur, dbTable)
+            dbConn.commit()
+
+        self.connect_close(dbConn, closeConn)
+
+    def store_records(
+        self, inData: typeDefData, **kwargs: Any
+    ) -> None:
+        """Store data records in SQLite database.
+
+        Args:
+            inData:
+                Data to be stored as single 'dict' or 'list' of 'dicts'
+            kwargs:
+                - 'close' -- close DB connection if 'True'
+        """
+        closeConn = kwargs.get(const.KWD_CLOSE, True)
+        dbConn = self.connect_open()
+        dbCur = dbConn.cursor()
+
+        # Ensure that we always handle a list of rows
+        data = inData if isinstance(inData, list) else [inData]
+
+        if not self._has_table_helper(dbCur):
+            self._create_table_helper(dbCur)
+            dbConn.commit()
+
+        self._store_records_helper(dbCur, data)
+        dbConn.commit()
+
+        self.connect_close(dbConn, closeConn)
+
+    def count_records(self, **kwargs: Any) -> int:
+        """Count number of records in SQLite database.
+
+        Args:
+            kwargs:
+                - 'close' -- close DB connection if 'True'
+
+        Returns:
+            Number of records in a table
+        """
+        closeConn = kwargs.get(const.KWD_CLOSE, True)
+        dbConn = self.connect_open()
+        dbCur = dbConn.cursor()
+
+        numRecs = self._count_records_helper(dbCur)
+
+        self.connect_close(dbConn, closeConn)
+        return numRecs
+
+    def retrieve_records(self, numRecs: int = 1, **kwargs: Any) -> List[Dict[str, Any]]:
+        """Retrieve data records from SQLite database.
+
+        Args:
+            numRecs:
+                Number of records to retrieve
+            kwargs:
+                - 'close'    -- close DB connection if 'True'
+                - 'order_by' -- Field to sorted by
+                - 'first'    -- If TRUE, retrieve first 'numRecs' records.
+                                Else retrieve last 'numRecs' records.
+        Returns:
+            List of records
+        """
+        orderBy = kwargs.get(const.KWD_ORDER_BY, None)
+        newest = kwargs.get(const.KWD_NEWEST, True)
+
+        closeConn = kwargs.get(const.KWD_CLOSE, True)
+        dbConn = self.connect_open()
+        dbCur = dbConn.cursor()
+
+        foundRecs = self._retrieve_records_helper(dbCur, numRecs, newest, orderBy)
+
+        self.connect_close(dbConn, closeConn)
+        return foundRecs
 
     def trim_records(self, numRecs: int = 0, **kwargs: Any) -> int:
         """Trim data records from SQLite database.
@@ -477,6 +546,9 @@ def create_orderby_param(inStr: str, flip: bool = False) -> str:
             Original 'orderBy' parameter string.
         flip:
             If 'True' then turn 'ASC' to 'DESC" and vice versa
+
+    Returns:
+        New 'ORDER BY' string to be used in SQL query
     """
 
     def _flip_orderby(s: str, flg: bool = False) -> str:
@@ -493,8 +565,26 @@ def create_orderby_param(inStr: str, flip: bool = False) -> str:
     return f"ORDER BY {parts[0]} {_flip_orderby(outStr, flip)}"
 
 
-def verify_db_file(dbName: Union[Path, str], serviceName: str, strict: bool) -> Union[Path, str]:
-    if serviceName == const.STORAGE_SQLITE and str(dbName).lower() == const.KWD_IN_MEMORY:
-        return const.KWD_IN_MEMORY
+def verify_db_file(dbHost: Union[Path, str], serviceName: str, strict: bool) -> Union[Path, str]:
+    """Verify that database file exists.
 
-    return verify_file(dbName, strict)
+    This method is really designed to verify that a SQLite database file exists. However, SQLite
+    also supports an in-memory mode which does not have an actual file associated, and we need
+    to check for that first.
+
+    Args:
+        dbHost:
+            Name of database file which can be an actual file name, or the ':memory:' keyword.
+        serviceName:
+            Name of service (should be 'SQLite')
+        strict:
+            If 'True' then we require that file/hosts exists.
+
+    Returns:
+        Path/file/name of database.
+    """
+    if serviceName == const.STORAGE_SQLITE:
+        return const.KWD_IN_MEMORY if (str(dbHost).lower() == const.KWD_IN_MEMORY) else verify_file(dbHost, strict)
+
+    # Houston, we have a problem!
+    return ""

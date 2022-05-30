@@ -26,6 +26,7 @@ from f451_store.providers.provider import verify_file
 # =========================================================
 SRV_CONFIG_SCTN: str = "f451_mysql"
 SRV_PROVIDER: str = "MySQL"
+MYSQL_DEFAULT_PORT: str = "3306"
 
 log = logging.getLogger()
 pp = pprint.PrettyPrinter(indent=4)
@@ -38,6 +39,10 @@ FORMAT_MAP = {
     const.FMT_KWD_FLOAT: 'REAL',            # floats (e.g. 0.1. 0.22, 0.333, ... )
     const.FMT_KWD_BOOL: 'NUMERIC',          # booleans (e.g. True|False, Yes|No, etc.)
 }
+
+typeDefConnector = Union[mysql.connector.connection.MySQLConnection, None]
+typeDefCursor = Any
+typeDefData = Union[List[Dict[str, Any]], Dict[str, Any]]
 
 
 # =========================================================
@@ -60,47 +65,29 @@ class MySQL(sql.BaseSQL):
     def __init__(
         self,
         dataFields: Dict[str, str],
-        dbName: Path,
-        dbTable: str,
         **kwargs: Any,
     ) -> None:
+        sql.verify_not_empty(kwargs.get(const.KWD_DB_USER_NAME, ''), True, const.KWD_DB_USER_NAME)
+        sql.verify_not_empty(kwargs.get(const.KWD_DB_USER_PSWD, ''), True, const.KWD_DB_USER_PSWD)
         super().__init__(
             const.SRV_TYPE_SQL,
             SRV_PROVIDER,
             SRV_CONFIG_SCTN,
             dataFields,
             FORMAT_MAP,
-            dbName,
-            dbTable,
             **kwargs,
         )
-        self._create: bool = kwargs.get(const.KWD_CREATE, False)
         self._dbConn: Any = None
-        self.dbUserName = kwargs.get(const.KWD_DB_USER_NAME, '')
-        self.dbUserPswd = kwargs.get(const.KWD_DB_USER_PSWD, '')
 
     @property
-    def dbUserName(self) -> str:
-        """Return 'dbUserName' property."""
-        return self._dbUserName
+    def isConnectionOpen(self) -> bool:
+        """Return 'dbConn' property."""
+        return self._dbConn is not None
 
-    @dbUserName.setter
-    def dbUserName(self, inName: str) -> None:
-        """Set 'dbUserName' property."""
-        self._dbUserName = inName
-
-    @property
-    def dbUserPswd(self) -> str:
-        """Return 'dbUserPswd' property."""
-        return self._dbUserPswd
-
-    @dbUserPswd.setter
-    def dbUserPswd(self, inPswd: str) -> None:
-        """Set 'dbUserPswd' property."""
-        self._dbUserPswd = inPswd
-
-    def _connect_to_db(self) -> Any:
+    def connect_open(self, force: Optional[bool] = False) -> Any:
         """Establish connection to MySQL database.
+
+        Note: https://pynative.com/python-mysql-database-connection/
 
         Returns:
             MySQL Connection object
@@ -111,111 +98,130 @@ class MySQL(sql.BaseSQL):
         self._dbConn = None
         try:
             self._dbConn = mysql.connector.connect(
-                host=self._db,
+                port=self._dbPort if self._dbPort else MYSQL_DEFAULT_PORT,
+                host=self._dbHost,
                 user=self._dbUserName,
                 passwd=self._dbUserPswd,
             )
 
         except mysql.connector.Error as e:
-            log.error(f"Unable to access {SRV_PROVIDER} database: '{str(self._db)}'")
-            raise StorageConnectionError(message=f"Unable to connect to SQLite DB: '{self._db}'", errors=[str(e)]) from e
+            log.error(f"Unable to access {SRV_PROVIDER} database: '{str(self._dbHost)}'")
+            raise StorageConnectionError(
+                message=f"Unable to connect to MySQL DB: '{self._dbHost}'",
+                errors=[str(e)]
+            ) from e
 
         return self._dbConn
 
-    @staticmethod
-    def _exist_table(dbCur: sqlite3.Cursor, dbTable: str) -> bool:
-        """Helper method to check if given database table exists.
-
-        SQLIte3 stores table names in the 'sqlite_master' table.
+    def connect_close(self, dbConn: Any, force: Optional[bool] = True) -> None:
+        """Close connection to MySQL database.
 
         Args:
-            dbCur:
-                DB cursor for current database connection
-            dbTable:
-                Name of database table
-
-        Returns:
-            'True' if table exists.
-
-        Raises:
-            StorageAccessError: If database table cannot be verified.
+            dbConn:
+                MySQL Connection object
+            force:
+                If 'True' then we close any open connection and create new connection
         """
-        try:
-            qry = f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{dbTable}'"
-            print(f"{qry =}")
-            dbCur.execute(qry)
-            # dbCur.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{dbTable}'")
-        except sqlite3.Error as e:
-            log.error(f"Unable to verify table in {SRV_PROVIDER} database: '{dbTable}'")
-            raise StorageAccessError(SRV_PROVIDER) from e
+        if force and dbConn is not None:
+            dbConn.close()
+            self._dbConn = None
 
-        return dbCur.fetchone()[0] == 1
+    @staticmethod
+    def _exist_table(dbCur: Any, dbTable: str) -> bool:
+        # """Helper method to check if given database table exists.
+        #
+        # SQLIte3 stores table names in the 'sqlite_master' table.
+        #
+        # Args:
+        #     dbCur:
+        #         DB cursor for current database connection
+        #     dbTable:
+        #         Name of database table
+        #
+        # Returns:
+        #     'True' if table exists.
+        #
+        # Raises:
+        #     StorageAccessError: If database table cannot be verified.
+        # """
+        # try:
+        #     qry = f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{dbTable}'"
+        #     print(f"{qry =}")
+        #     dbCur.execute(qry)
+        #     # dbCur.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{dbTable}'")
+        # except sqlite3.Error as e:
+        #     log.error(f"Unable to verify table in {SRV_PROVIDER} database: '{dbTable}'")
+        #     raise StorageAccessError(SRV_PROVIDER) from e
+        #
+        # return dbCur.fetchone()[0] == 1
+        pass
 
     def _make_table(
             self,
-            dbCur: sqlite3.Cursor,
+            dbCur: Any,
             dbTable: Optional[str],
             dataFields: Optional[Dict[str, str]],
             formatMap: Optional[Dict[str, str]]
     ) -> None:
-        """Helper method to make a new table in a given database.
-
-        Args:
-            dbCur:
-                DB cursor for current database connection
-            dbTable:
-                Name of database table
-            dataFields:
-                Data fields
-            formatMap:
-                Data field format map
-
-        Raises:
-            InvalidAttributeError: If database field maps are invalid.
-            StorageAccessError: If database table cannot be created.
-        """
-
-        def _split_type_idx(inStr):
-            parts = inStr.split('|')
-            if len(parts) > 1:
-                return parts[0], (parts[1].lower() == 'idx')
-
-            return parts[0], False
-
-        tblName = self._dbTable if not dbTable else dbTable
-        dtaFlds = self._dataFields if not dataFields else dataFields
-        fmtMap = self._dataFormats if not formatMap else formatMap
-
-        print(f"CREATE TABLE: {tblName}")
-        try:
-            newFlds = [
-                f"{str(key)} {str(_split_type_idx(fmtMap[val])[0])}"
-                for (key, val) in dtaFlds.items()
-            ]
-            qry = f"CREATE TABLE IF NOT EXISTS {tblName} ({','.join(newFlds)});"
-            print(f"{qry =}")
-            dbCur.execute(qry)
-
-        except KeyError as e:
-            log.error(f"Invalid data format: '{str(e)}'")
-            raise InvalidAttributeError(str(e), service=SRV_PROVIDER) from e
-
-        except sqlite3.Error as e:
-            log.error(f"Unable to create table in {SRV_PROVIDER} database: '{tblName}'")
-            raise StorageAccessError(SRV_PROVIDER) from e
-
-        # SQLite automatically creates a 'primary key' column, and we'll therefore
-        # only create indexed columns as indicated in 'fldNamesWithTypes'.
-        try:
-            for (key, val) in dtaFlds.items():
-                if _split_type_idx(fmtMap[val])[1]:
-                    qry = f"CREATE INDEX idx_{tblName}_{key} ON {tblName}({key});"
-                    print(f"{qry =}")
-                    dbCur.execute(qry)
-
-        except sqlite3.Error as e:
-            log.error(f"Unable to create table index in {SRV_PROVIDER} database: '{tblName}'")
-            raise StorageAccessError(SRV_PROVIDER) from e
+        # """Helper method to make a new table in a given database.
+        #
+        # Args:
+        #     dbCur:
+        #         DB cursor for current database connection
+        #     dbTable:
+        #         Name of database table
+        #     dataFields:
+        #         Data fields
+        #     formatMap:
+        #         Data field format map
+        #
+        # Raises:
+        #     InvalidAttributeError: If database field maps are invalid.
+        #     StorageAccessError: If database table cannot be created.
+        # """
+        #
+        # def _split_type_idx(inStr):
+        #     parts = inStr.split('|')
+        #     if len(parts) > 1:
+        #         return parts[0], (parts[1].lower() == 'idx')
+        #
+        #     return parts[0], False
+        #
+        # tblName = self._dbTable if not dbTable else dbTable
+        # dtaFlds = self._dataFields if not dataFields else dataFields
+        # fmtMap = self._dataFormats if not formatMap else formatMap
+        #
+        # print(f"CREATE TABLE: {tblName}")
+        # try:
+        #     newFlds = [
+        #         f"{str(key)} {str(_split_type_idx(fmtMap[val])[0])}"
+        #         for (key, val) in dtaFlds.items()
+        #     ]
+        #     qry = f"CREATE TABLE IF NOT EXISTS {tblName} ({','.join(newFlds)});"
+        #     print(f"{qry =}")
+        #     dbCur.execute(qry)
+        #
+        # except KeyError as e:
+        #     log.error(f"Invalid data format: '{str(e)}'")
+        #     raise InvalidAttributeError(str(e), service=SRV_PROVIDER) from e
+        #
+        # except sqlite3.Error as e:
+        #     log.error(f"Unable to create table in {SRV_PROVIDER} database: '{tblName}'")
+        #     raise StorageAccessError(SRV_PROVIDER) from e
+        #
+        # # SQLite automatically creates a 'primary key' column, and we'll therefore
+        # # only create indexed columns as indicated in 'fldNamesWithTypes'.
+        # try:
+        #     for (key, val) in dtaFlds.items():
+        #         if _split_type_idx(fmtMap[val])[1]:
+        #             qry = f"CREATE INDEX idx_{tblName}_{key} ON {tblName}({key});"
+        #             print(f"{qry =}")
+        #             dbCur.execute(qry)
+        #
+        # except sqlite3.Error as e:
+        #     log.error(f"Unable to create table index in {SRV_PROVIDER} database: '{tblName}'")
+        #     raise StorageAccessError(SRV_PROVIDER) from e
+        pass
 
     def create_table(self, dbTable: str, dataFields: Dict[str, str], formatMap: Dict[str, str]) -> None:
         """Public method to create a new table with given set of fields.

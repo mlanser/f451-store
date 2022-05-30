@@ -38,24 +38,24 @@ class Helpers:
 # =========================================================
 #        G L O B A L   P Y T E S T   F I X T U R E S
 # =========================================================
-_KWD_TEST_SCTN_ = "test_sctn"  # NOTE: ConfigParser converts all keys to
-_KWD_TEST_KEY_ = "test_key"  # lower case as they follow .ini syntax
-_KWD_TEST_VAL_ = "test_val"  # rules for key attributes
+KWD_TEST_SCTN = "test_sctn"  # NOTE: ConfigParser converts all keys to
+KWD_TEST_KEY = "test_key"  # lower case as they follow .ini syntax
+KWD_TEST_VAL = "test_val"  # rules for key attributes
 
 KEY_FLD_NAME = 'ID'  # We're using this in various tests
 
-_DEFAULT_ATTRIBS_DICT_ = {
-    _KWD_TEST_KEY_: _KWD_TEST_VAL_,
+DEFAULT_ATTRIBS_DICT = {
+    KWD_TEST_KEY: KWD_TEST_VAL,
     "k11": "v11",
     "k12": "v12",
 }
-_DEFAULT_CONFIG_DICT_ = {_KWD_TEST_SCTN_: _DEFAULT_ATTRIBS_DICT_}
-_DEFAULT_CONFIG_STR_ = (
-    f"{_KWD_TEST_SCTN_}|{_KWD_TEST_KEY_}:{_KWD_TEST_VAL_},k11:v11,k12:v12"
+DEFAULT_CONFIG_DICT = {KWD_TEST_SCTN: DEFAULT_ATTRIBS_DICT}
+DEFAULT_CONFIG_STR = (
+    f"{KWD_TEST_SCTN}|{KWD_TEST_KEY}:{KWD_TEST_VAL},k11:v11,k12:v12"
 )
-_DEFAULT_SERVICE_STR_ = "f451_json|f451_sqlite"
+DEFAULT_SERVICE_STR = "f451_json|f451_sqlite"
 
-_DEFAULT_TEST_SECRETS_ = {
+DEFAULT_TEST_SECRETS = {
     "f451_json": {
         "fname": "_FNAME_OF_JSON_FILE_",
     },
@@ -64,9 +64,9 @@ _DEFAULT_TEST_SECRETS_ = {
     },
 }
 
-_DEFAULT_TEST_CONFIG_ = {
+DEFAULT_TEST_CONFIG = {
     "f451_main": {
-        "services": _DEFAULT_SERVICE_STR_,
+        "services": DEFAULT_SERVICE_STR,
         "service_map": "json:f451_json|csv:f451_csv|sql:f451_sqlite",  # noqa: B950
     },
     "f451_json": {},
@@ -76,7 +76,7 @@ _DEFAULT_TEST_CONFIG_ = {
     "f451_sqlite": {},
 }
 
-_TEST_FLD_MAP_ = {
+TEST_FLD_MAP = {
     KEY_FLD_NAME: const.FMT_KWD_INTIDX,
     "HDR1": const.FMT_KWD_STR,
     "HDR2": const.FMT_KWD_STR,
@@ -84,7 +84,7 @@ _TEST_FLD_MAP_ = {
     "HDR4": const.FMT_KWD_STR,
 }
 
-_TEST_MIXED_FLD_MAP_ = {
+TEST_MIXED_FLD_MAP = {
     KEY_FLD_NAME: const.FMT_KWD_INTIDX,
     "HDR_STRIDX": const.FMT_KWD_STRIDX,
     "HDR_STR": const.FMT_KWD_STR,
@@ -94,7 +94,7 @@ _TEST_MIXED_FLD_MAP_ = {
     "HDR_BOOL": const.FMT_KWD_BOOL,
 }
 
-_MAGIC_TEST_NUMBER_ = 1000
+MAGIC_TEST_NUMBER = 1000
 
 fake = Faker()  # Initialize 'Faker'
 
@@ -108,13 +108,13 @@ def key_fld_name():
 @pytest.fixture()
 def magic_test_number():
     """Return magic test number."""
-    return _MAGIC_TEST_NUMBER_
+    return MAGIC_TEST_NUMBER
 
 
 @pytest.fixture()
 def valid_field_map():
     """Return valid data field map."""
-    return _TEST_FLD_MAP_
+    return TEST_FLD_MAP
 
 
 @pytest.fixture()
@@ -162,7 +162,7 @@ def valid_data_set():
 @pytest.fixture(scope="function")
 def valid_mixed_field_map():
     """Return valid field map with mixed data types."""
-    return _TEST_MIXED_FLD_MAP_
+    return TEST_MIXED_FLD_MAP
 
 
 @pytest.fixture(scope="function")
@@ -187,45 +187,45 @@ def valid_mixed_data_set():
 @pytest.fixture()
 def default_test_section():
     """Return default test values."""
-    return _KWD_TEST_SCTN_
+    return KWD_TEST_SCTN
 
 
 @pytest.fixture()
 def default_test_key():
     """Return default test values."""
-    return _KWD_TEST_KEY_
+    return KWD_TEST_KEY
 
 
 @pytest.fixture()
 def default_test_val():
     """Return default test values."""
-    return _KWD_TEST_VAL_
+    return KWD_TEST_VAL
 
 
 @pytest.fixture()
 def valid_config():
     """Return valid config values."""
     parser = ConfigParser(interpolation=ExtendedInterpolation())
-    parser.read_dict(_DEFAULT_CONFIG_DICT_)
+    parser.read_dict(DEFAULT_CONFIG_DICT)
     return parser
 
 
 @pytest.fixture()
 def valid_config_dict():
     """Return valid config values as `dict`."""
-    return _DEFAULT_CONFIG_DICT_
+    return DEFAULT_CONFIG_DICT
 
 
 @pytest.fixture()
 def valid_config_string():
     """Return valid config values as `str`."""
-    return _DEFAULT_CONFIG_STR_
+    return DEFAULT_CONFIG_STR
 
 
 @pytest.fixture()
 def valid_attribs_dict():
     """Return attributes."""
-    return _DEFAULT_ATTRIBS_DICT_
+    return DEFAULT_ATTRIBS_DICT
 
 
 @pytest.fixture()
@@ -263,12 +263,12 @@ def invalid_string():
 def valid_settings():
     """Return valid config values."""
     parser = ConfigParser()
-    parser.read_dict(_DEFAULT_TEST_CONFIG_)
-    parser.read_dict(_DEFAULT_TEST_SECRETS_)
+    parser.read_dict(DEFAULT_TEST_CONFIG)
+    parser.read_dict(DEFAULT_TEST_SECRETS)
     return parser
 
 
 @pytest.fixture()
 def default_channels_string():
     """Return test values."""
-    return _DEFAULT_SERVICE_STR_
+    return DEFAULT_SERVICE_STR

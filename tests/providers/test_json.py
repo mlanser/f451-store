@@ -192,7 +192,7 @@ def test_retrieve_records_with_mixed_data_set(
     non_existing_JSON_storage,
     valid_mixed_field_map,
     valid_mixed_data_set,
-    magic_test_number,
+    key_fld_name,
     capsys,
     helpers,
 ):
@@ -204,10 +204,8 @@ def test_retrieve_records_with_mixed_data_set(
 
     # Check last/newest record
     foundRecs = db.retrieve_records(1, newest=True)
-    pureMagic = maxRecs + magic_test_number
     assert len(foundRecs) == 1
-    assert foundRecs[0]["HDR_STRIDX"] == str(pureMagic)
-    assert foundRecs[0]["HDR_INTIDX"] == pureMagic
+    assert foundRecs[0][key_fld_name] == maxRecs
 
 
 def test_trim_records(
