@@ -55,7 +55,12 @@ def valid_table_name():
 #                T E S T   F U N C T I O N S
 # =========================================================
 def test_connect_to_sqlite_data_file(
-    file_based_storage, valid_table_name, valid_field_map, valid_format_map, capsys, helpers
+    file_based_storage,
+    valid_table_name,
+    valid_field_map,
+    valid_format_map,
+    capsys,
+    helpers,
 ):
     """Test happy path.
 
@@ -65,19 +70,24 @@ def test_connect_to_sqlite_data_file(
     dbFName = file_based_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_field_map, db_host=dbFName, db_table=dbTable)
-    dbConn = sqliteDB.connect_open(True)
+    sqliteDB.connect_open(True)
 
     assert str(sqliteDB.dbHost) == dbFName
     assert not len(set(sqliteDB.dataFields.keys()).difference(set(valid_field_map)))
     assert not len(set(sqliteDB.formatMap.keys()).difference(set(valid_format_map)))
     assert sqliteDB.isConnectionOpen
 
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
 def test_connect_to_sqlite_in_memory(
-    in_memory_storage, valid_table_name, valid_field_map, valid_format_map, capsys, helpers
+    in_memory_storage,
+    valid_table_name,
+    valid_field_map,
+    valid_format_map,
+    capsys,
+    helpers,
 ):
     """Test happy path.
 
@@ -94,12 +104,17 @@ def test_connect_to_sqlite_in_memory(
     assert not len(set(sqliteDB.formatMap.keys()).difference(set(valid_format_map)))
     assert dbConn is not None
 
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
 def test_connect_to_sqlite_w_create_set_to_false(
-    file_based_storage, valid_table_name, valid_field_map, valid_format_map, capsys, helpers
+    file_based_storage,
+    valid_table_name,
+    valid_field_map,
+    valid_format_map,
+    capsys,
+    helpers,
 ):
     """Test happy path with create and append flags set to 'False'.
 
@@ -108,14 +123,16 @@ def test_connect_to_sqlite_w_create_set_to_false(
     """
     dbFName = file_based_storage
     dbTable = valid_table_name
-    sqliteDB = sqlite.SQLite(valid_field_map, db_host=dbFName, db_table=dbTable, create=False, append=False)
+    sqliteDB = sqlite.SQLite(
+        valid_field_map, db_host=dbFName, db_table=dbTable, create=False, append=False
+    )
     dbConn = sqliteDB.connect_open(True)
 
     assert not sqliteDB.isCreateMode
     assert not sqliteDB.isAppendMode
     assert dbConn is not None
 
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
@@ -154,7 +171,12 @@ def test_connect_to_sqlite_fail_w_invalid_data_fields(
 
 
 def test_create_table(
-    in_memory_storage, file_based_local_storage, valid_table_name, valid_field_map, capsys, helpers
+    in_memory_storage,
+    file_based_local_storage,
+    valid_table_name,
+    valid_field_map,
+    capsys,
+    helpers,
 ):
     """Test checking if table exists.
 
@@ -164,27 +186,38 @@ def test_create_table(
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_field_map, db_host=dbFName, db_table=dbTable)
-    dbConn = sqliteDB.connect_open(True)
+    sqliteDB.connect_open(True)
 
     # Confirm that we have a connection
     assert sqliteDB.isConnectionOpen
 
     # Explicitly create a new tables
-    assert not sqliteDB.has_table(valid_table_name, close=False)   # Default table should not exist yet in new db
+    assert not sqliteDB.has_table(
+        valid_table_name, close=False
+    )  # Default table should not exist yet in new db
     sqliteDB.create_table(valid_table_name, close=False)
-    assert sqliteDB.has_table(valid_table_name, close=False)   # Table should exist now
+    assert sqliteDB.has_table(valid_table_name, close=False)  # Table should exist now
 
-    assert not sqliteDB.has_table('some_new_test_table', close=False)   # Table should not exist yet
-    sqliteDB.create_table('some_new_test_table', close=False)
-    assert sqliteDB.has_table('some_new_test_table', close=False)   # Table should exist now
+    assert not sqliteDB.has_table(
+        "some_new_test_table", close=False
+    )  # Table should not exist yet
+    sqliteDB.create_table("some_new_test_table", close=False)
+    assert sqliteDB.has_table(
+        "some_new_test_table", close=False
+    )  # Table should exist now
 
     # Explicitly close open connection
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
 def test_create_new_table_in_single_call(
-    in_memory_storage, file_based_local_storage, valid_table_name, valid_field_map, capsys, helpers
+    in_memory_storage,
+    file_based_local_storage,
+    valid_table_name,
+    valid_field_map,
+    capsys,
+    helpers,
 ):
     """Test checking if table exists.
 
@@ -194,18 +227,23 @@ def test_create_new_table_in_single_call(
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_field_map, db_host=dbFName, db_table=dbTable)
-    dbConn = sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
+    sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
 
     sqliteDB.create_table(valid_table_name, close=False)
-    assert sqliteDB.has_table(valid_table_name, close=False)   # Table should exist now
+    assert sqliteDB.has_table(valid_table_name, close=False)  # Table should exist now
 
     # Explicitly close open connection
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
 def test_store_records(
-    in_memory_storage, valid_table_name, valid_field_map, valid_data_row, capsys, helpers
+    in_memory_storage,
+    valid_table_name,
+    valid_field_map,
+    valid_data_row,
+    capsys,
+    helpers,
 ):
     """Test storing data to existing file.
 
@@ -215,7 +253,7 @@ def test_store_records(
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_field_map, db_host=dbFName, db_table=dbTable)
-    dbConn = sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
+    sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
 
     numRecs = 25
     data = [valid_data_row for _ in range(numRecs)]
@@ -226,7 +264,7 @@ def test_store_records(
     assert foundRecs == numRecs
 
     # Explicitly close open connection
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
@@ -246,7 +284,7 @@ def test_store_records_with_mixed_data_types(
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_mixed_field_map, db_host=dbFName, db_table=dbTable)
-    dbConn = sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
+    sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
 
     data = valid_mixed_data_set
     numRecs = len(data)
@@ -257,12 +295,17 @@ def test_store_records_with_mixed_data_types(
     assert foundRecs == numRecs
 
     # Explicitly close open connection
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
 def test_count_records(
-    in_memory_storage, valid_table_name, valid_field_map, valid_data_row, capsys, helpers
+    in_memory_storage,
+    valid_table_name,
+    valid_field_map,
+    valid_data_row,
+    capsys,
+    helpers,
 ):
     """Test counting data records in existing file.
 
@@ -272,9 +315,10 @@ def test_count_records(
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_field_map, db_host=dbFName, db_table=dbTable)
-    dbConn = sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
+    sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
+
     foundRecs = sqliteDB.count_records(close=False)
-    assert foundRecs == 0   # There should be 0 records!
+    assert foundRecs == 0  # There should be 0 records!
 
     numRecs = 25
     data = [valid_data_row for _ in range(numRecs)]
@@ -283,7 +327,7 @@ def test_count_records(
     assert foundRecs == numRecs
 
     # Explicitly close open connection
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
@@ -305,7 +349,7 @@ def test_retrieve_records(
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_mixed_field_map, db_host=dbFName, db_table=dbTable)
-    dbConn = sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
+    sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
 
     data = valid_mixed_data_set
     makeNumRecs = len(data)
@@ -314,7 +358,9 @@ def test_retrieve_records(
 
     # Grab 'newest' records & sort by 'keyFldName' which will
     # hold a value == to row/record number.
-    foundRecs = sqliteDB.retrieve_records(getNumRecs, newest=True, order_by=keyFldName, close=False)
+    foundRecs = sqliteDB.retrieve_records(
+        getNumRecs, newest=True, order_by=keyFldName, close=False
+    )
     assert len(foundRecs) == getNumRecs
 
     assert foundRecs[0][keyFldName] == makeNumRecs - getNumRecs + 1
@@ -322,14 +368,16 @@ def test_retrieve_records(
 
     # Grab 'oldest' records & sort by 'keyFldName' which will
     # hold a value == to row/record number.
-    foundRecs = sqliteDB.retrieve_records(getNumRecs, newest=False, order_by=keyFldName, close=False)
+    foundRecs = sqliteDB.retrieve_records(
+        getNumRecs, newest=False, order_by=keyFldName, close=False
+    )
     assert len(foundRecs) == getNumRecs
 
     assert foundRecs[0][keyFldName] == 1
     assert foundRecs[-1][keyFldName] == getNumRecs
 
     # Explicitly close open connection
-    sqliteDB.connect_close(dbConn, True)
+    sqliteDB.connect_close(True)
     assert not sqliteDB.isConnectionOpen
 
 
@@ -358,7 +406,7 @@ def test_trim_records(
     dbFName = in_memory_storage
     dbTable = valid_table_name
     sqliteDB = sqlite.SQLite(valid_mixed_field_map, db_host=dbFName, db_table=dbTable)
-    dbConn = sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
+    sqliteDB.connect_open(True)  # Explicitly open and keep open for duration of test
 
     data = valid_mixed_data_set
     makeNumRecs = len(data)
@@ -366,7 +414,9 @@ def test_trim_records(
 
     # Trim first/oldest record
     trimRecs = sqliteDB.trim_records(1, newest=False, order_by=keyFldName, close=False)
-    foundRecs = sqliteDB.retrieve_records(1, newest=False, order_by=keyFldName, close=False)
+    foundRecs = sqliteDB.retrieve_records(
+        1, newest=False, order_by=keyFldName, close=False
+    )
     totRecs = sqliteDB.count_records(close=False)
     assert trimRecs == 1
     assert foundRecs[0][keyFldName] == 2
@@ -374,7 +424,9 @@ def test_trim_records(
 
     # Trim last/newest record
     trimRecs = sqliteDB.trim_records(1, newest=True, order_by=keyFldName, close=False)
-    foundRecs = sqliteDB.retrieve_records(1, newest=True, order_by=keyFldName, close=False)
+    foundRecs = sqliteDB.retrieve_records(
+        1, newest=True, order_by=keyFldName, close=False
+    )
     totRecs = sqliteDB.count_records(close=False)
     assert trimRecs == 1
     assert foundRecs[0][keyFldName] == makeNumRecs - 1
@@ -382,7 +434,9 @@ def test_trim_records(
 
     # Trim 10 first/oldest records
     trimRecs = sqliteDB.trim_records(10, newest=False, order_by=keyFldName, close=False)
-    foundRecs = sqliteDB.retrieve_records(1, newest=False, order_by=keyFldName, close=False)
+    foundRecs = sqliteDB.retrieve_records(
+        1, newest=False, order_by=keyFldName, close=False
+    )
     totRecs = sqliteDB.count_records(close=False)
     assert trimRecs == 10
     assert foundRecs[0][keyFldName] == 12
@@ -390,11 +444,14 @@ def test_trim_records(
 
     # Trim 10 last/newest record
     trimRecs = sqliteDB.trim_records(10, newest=True, order_by=keyFldName, close=False)
-    foundRecs = sqliteDB.retrieve_records(1, newest=True, order_by=keyFldName, close=False)
+    foundRecs = sqliteDB.retrieve_records(
+        1, newest=True, order_by=keyFldName, close=False
+    )
     totRecs = sqliteDB.count_records(close=False)
     assert trimRecs == 10
     assert foundRecs[0][keyFldName] == makeNumRecs - 1 - 10
     assert totRecs == makeNumRecs - 1 - 1 - 10 - 10
+
 
 # helpers.pp(capsys, foundRecs[0][keyFldName], currentframe())
 # helpers.pp(capsys, foundRecs[-1][keyFldName], currentframe())

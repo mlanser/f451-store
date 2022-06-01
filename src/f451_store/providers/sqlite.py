@@ -8,16 +8,19 @@ import pprint
 import sqlite3
 from pathlib import Path
 from typing import Any
-from typing import Optional
+from typing import Callable
 from typing import Dict
 from typing import List
+from typing import Mapping
+from typing import Optional
+from typing import Tuple
 from typing import Union
 
 import f451_store.constants as const
-from f451_store.exceptions import InvalidAttributeError
-from f451_store.exceptions import StorageConnectionError
-from f451_store.exceptions import StorageAccessError
 import f451_store.providers.sql as sql
+from f451_store.exceptions import InvalidAttributeError
+from f451_store.exceptions import StorageAccessError
+from f451_store.exceptions import StorageConnectionError
 from f451_store.providers.provider import verify_file
 
 # =========================================================
@@ -30,16 +33,15 @@ log = logging.getLogger()
 pp = pprint.PrettyPrinter(indent=4)
 
 FORMAT_MAP = {
-    const.FMT_KWD_STR: 'TEXT',              # strings (e.g. "some long string")
-    const.FMT_KWD_STRIDX: 'TEXT|idx',       # strings as index (for SQL data stores)
-    const.FMT_KWD_INT: 'INTEGER',           # integers (e.g. 1, 2, 3, ... gazillion ... maybe ;-)
-    const.FMT_KWD_INTIDX: 'INTEGER|idx',    # integers as index (for SQL data stores)
-    const.FMT_KWD_FLOAT: 'REAL',            # floats (e.g. 0.1. 0.22, 0.333, ... )
-    const.FMT_KWD_BOOL: 'NUMERIC',          # booleans (e.g. True|False, Yes|No, etc.)
+    const.FMT_KWD_STR: "TEXT",  # strings (e.g. "some long string")
+    const.FMT_KWD_STRIDX: "TEXT|idx",  # strings as index (for SQL data stores)
+    const.FMT_KWD_INT: "INTEGER",  # integers (e.g. 1, 2, 3, ... gazillion ... maybe ;-)
+    const.FMT_KWD_INTIDX: "INTEGER|idx",  # integers as index (for SQL data stores)
+    const.FMT_KWD_FLOAT: "REAL",  # floats (e.g. 0.1. 0.22, 0.333, ... )
+    const.FMT_KWD_BOOL: "NUMERIC",  # booleans (e.g. True|False, Yes|No, etc.)
 }
 
 typeDefConnector = Union[sqlite3.Connection, None]
-typeDefCursor = sqlite3.Cursor
 typeDefData = Union[List[Dict[str, Any]], Dict[str, Any]]
 
 
@@ -73,7 +75,7 @@ class SQLite(sql.BaseSQL):
             FORMAT_MAP,
             **kwargs,
         )
-        self._dbConn = None
+        self._dbConn: typeDefConnector = None
 
     @property
     def isConnectionOpen(self) -> bool:
@@ -102,35 +104,33 @@ class SQLite(sql.BaseSQL):
                 self._dbConn = sqlite3.connect(self._dbHost)
 
             except sqlite3.Error as e:
-                log.error(f"Unable to access {SRV_PROVIDER} database: '{str(self._dbHost)}'")
+                log.error(
+                    f"Unable to access {SRV_PROVIDER} database: '{str(self._dbHost)}'"
+                )
                 raise StorageConnectionError(
                     message=f"Unable to connect to SQLite DB: '{self._dbHost}'",
-                    errors=[str(e)]
+                    errors=[str(e)],
                 ) from e
 
         return self._dbConn
 
-    def connect_close(self, dbConn: typeDefConnector, force: Optional[bool] = True) -> None:
+    def connect_close(self, force: Optional[bool] = True) -> None:
         """Close connection to SQLite database.
 
         Args:
-            dbConn:
-                'sqlite3.Connection' object
             force:
                 If 'True' then we close any open connection and create new connection
         """
-        if force and dbConn is not None:
-            dbConn.close()
+        if force and self._dbConn is not None:
+            self._dbConn.close()
             self._dbConn = None
 
-    def _has_table_helper(self, dbCur: typeDefCursor, dbTable: Optional[str] = None) -> bool:
+    def _has_table_helper(self, dbTable: Optional[str] = None) -> bool:
         """Helper method to check if given database table exists.
 
         SQLIte3 stores table names in the 'sqlite_master' table.
 
         Args:
-            dbCur:
-                DB cursor for current database connection
             dbTable:
                 Name of database table
 
@@ -141,27 +141,33 @@ class SQLite(sql.BaseSQL):
             StorageAccessError: If database table cannot be verified.
         """
         tblName = self._dbTable if not dbTable else dbTable
+        dbConn = self.connect_open()
 
+        if self._dbConn is None:
+            log.error(f"Unable to connect to {SRV_PROVIDER} database: '{tblName}'")
+            raise StorageAccessError(SRV_PROVIDER)
+
+        dbCur = dbConn.cursor()  # type: ignore[union-attr]
         try:
-            dbCur.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{tblName}';")
+            dbCur.execute(
+                f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{tblName}';"  # noqa: S608
+            )
         except sqlite3.Error as e:
             log.error(f"Unable to verify table in {SRV_PROVIDER} database: '{tblName}'")
+            self.connect_close(True)
             raise StorageAccessError(SRV_PROVIDER) from e
 
-        return dbCur.fetchone()[0] == 1
+        return int(dbCur.fetchone()[0]) == 1
 
     def _create_table_helper(
-            self,
-            dbCur: typeDefCursor,
-            dbTable: Optional[str] = None,
-            dataFields: Optional[Dict[str, str]] = None,
-            formatMap: Optional[Dict[str, str]] = None
+        self,
+        dbTable: Optional[str] = None,
+        dataFields: Optional[Dict[str, str]] = None,
+        formatMap: Optional[Dict[str, str]] = None,
     ) -> None:
         """Helper method to create a new table in an SQLite database.
 
         Args:
-            dbCur:
-                DB cursor for current database connection
             dbTable:
                 Name of database table
             dataFields:
@@ -173,56 +179,79 @@ class SQLite(sql.BaseSQL):
             InvalidAttributeError: If database field maps are invalid.
             StorageAccessError: If database table cannot be created.
         """
-
-        def _split_type_idx(inStr):
-            parts = inStr.split('|')
-            if len(parts) > 1:
-                return parts[0], (parts[1].lower() == 'idx')
-
-            return parts[0], False
-
         tblName = self._dbTable if not dbTable else dbTable
         dtaFlds = self._dataFields if not dataFields else dataFields
         fmtMap = self._dataFormats if not formatMap else formatMap
+        dbConn = self.connect_open()
+
+        if self._dbConn is None:
+            log.error(f"Unable to connect to {SRV_PROVIDER} database: '{tblName}'")
+            raise StorageAccessError(SRV_PROVIDER)
+
+        dbCur = dbConn.cursor()  # type: ignore[union-attr]
 
         try:
             newFlds = [
-                f"{str(key)} {str(_split_type_idx(fmtMap[val])[0])}"
+                f"{str(key)} {self._split_type_idx(str(fmtMap[val]))[0]}"
                 for (key, val) in dtaFlds.items()
             ]
-            dbCur.execute(f"CREATE TABLE IF NOT EXISTS {tblName} ({','.join(newFlds)});")
+            dbCur.execute(
+                f"CREATE TABLE IF NOT EXISTS {tblName} ({','.join(newFlds)});"
+            )
+
+            # SQLite automatically creates a 'primary key' column, and we'll therefore
+            # only create indexed columns as indicated in 'fldNamesWithTypes'.
+            self._create_indexed_columns(dbCur, dtaFlds, fmtMap, tblName)
 
         except KeyError as e:
             log.error(f"Invalid data format: '{str(e)}'")
+            self.connect_close(True)
             raise InvalidAttributeError(str(e), service=SRV_PROVIDER) from e
 
         except sqlite3.Error as e:
             log.error(f"Unable to create table in {SRV_PROVIDER} database: '{tblName}'")
+            self.connect_close(True)
             raise StorageAccessError(SRV_PROVIDER) from e
 
-        # SQLite automatically creates a 'primary key' column, and we'll therefore
-        # only create indexed columns as indicated in 'fldNamesWithTypes'.
+    def _create_indexed_columns(
+        self,
+        dbCur: sqlite3.Cursor,
+        dtaFlds: Dict[str, str],
+        fmtMap: Union[Mapping[str, Callable[[Any], Any]], Dict[str, str]],
+        tblName: str,
+    ) -> None:
+        """Create indexed columns."""
         try:
             for (key, val) in dtaFlds.items():
-                if _split_type_idx(fmtMap[val])[1]:
-                    dbCur.execute(f"CREATE INDEX idx_{tblName}_{key} ON {tblName}({key});")
+                if self._split_type_idx(str(fmtMap[val]))[1]:
+                    dbCur.execute(
+                        f"CREATE INDEX idx_{tblName}_{key} ON {tblName}({key});"
+                    )
 
         except sqlite3.Error as e:
-            log.error(f"Unable to create table index in {SRV_PROVIDER} database: '{tblName}'")
+            log.error(
+                f"Unable to create table index in {SRV_PROVIDER} database: '{tblName}'"
+            )
+            self.connect_close(True)
             raise StorageAccessError(SRV_PROVIDER) from e
 
+    @staticmethod
+    def _split_type_idx(inStr: str) -> Tuple[str, bool]:
+        parts = inStr.split("|")
+        if len(parts) > 1:
+            return parts[0], (parts[1].lower() == "idx")
+
+        return parts[0], False
+
     def _store_records_helper(
-            self,
-            dbCur: typeDefCursor,
-            data: List[Dict[str, Any]],
-            dbTable: Optional[str] = None,
-            dataFields: Optional[Dict[str, str]] = None,
+        self,
+        data: List[Dict[str, Any]],
+        dbTable: Optional[str] = None,
+        dataFields: Optional[Dict[str, str]] = None,
     ) -> None:
         """Helper method to store data records in an SQLite database.
 
         Args:
-            dbCur:
-                DB cursor for current database connection
             data:
                 Data to be stored as single 'dict' or 'list' of 'dicts'
             dbTable:
@@ -235,30 +264,40 @@ class SQLite(sql.BaseSQL):
         """
         tblName = self._dbTable if not dbTable else dbTable
         dtaFlds = self._dataFields if not dataFields else dataFields
+        dbConn = self.connect_open()
+
+        if self._dbConn is None:
+            log.error(f"Unable to connect to {SRV_PROVIDER} database: '{tblName}'")
+            raise StorageAccessError(SRV_PROVIDER)
+
+        dbCur = dbConn.cursor()  # type: ignore[union-attr]
 
         try:
             # Filter each row to only hold approved keys using dictionary
             # comprehension and, of course, a common set of keys ;-)
             validFlds = list(set(data[0].keys()) & set(dtaFlds.keys()))
             if len(validFlds) > 0:
-                flds = ','.join(validFlds)
-                vals = ','.join("?" for _ in validFlds)
+                flds = ",".join(validFlds)
+                vals = ",".join("?" for _ in validFlds)
                 for row in data:
                     # Using list comprehension to only pull values
                     # that we want/need from a row of data
-                    dbCur.execute(f"INSERT INTO {tblName}({flds}) VALUES({vals})",
-                                  [row[key] for key in validFlds])
+                    dbCur.execute(
+                        f"INSERT INTO {tblName}({flds}) VALUES({vals})",
+                        [row[key] for key in validFlds],
+                    )
 
         except sqlite3.Error as e:
-            log.error(f"Unable to store records in {SRV_PROVIDER} database: '{self._dbTable}'")
+            log.error(
+                f"Unable to store records in {SRV_PROVIDER} database: '{self._dbTable}'"
+            )
+            self.connect_close(True)
             raise StorageAccessError(SRV_PROVIDER) from e
 
-    def _count_records_helper(self, dbCur: typeDefCursor, dbTable: Optional[str] = None) -> int:
+    def _count_records_helper(self, dbTable: Optional[str] = None) -> int:
         """Helper method to count number of records in an SQLite database.
 
         Args:
-            dbCur:
-                DB cursor for current database connection
             dbTable:
                 Name of database table
 
@@ -269,33 +308,41 @@ class SQLite(sql.BaseSQL):
             StorageAccessError: If database table cannot be verified.
         """
         tblName = self._dbTable if not dbTable else dbTable
+        dbConn = self.connect_open()
 
-        if not self._has_table_helper(dbCur, tblName):
+        if self._dbConn is None:
+            log.error(f"Unable to connect to {SRV_PROVIDER} database: '{tblName}'")
+            raise StorageAccessError(SRV_PROVIDER)
+
+        dbCur = dbConn.cursor()  # type: ignore[union-attr]
+
+        if not self._has_table_helper(tblName):
             return 0
 
+        numRecs = 0
         try:
-            dbCur.execute(f"SELECT COUNT(*) FROM {tblName};")
-            numRecs = dbCur.fetchone()
+            dbCur.execute(f"SELECT COUNT(*) FROM {tblName};")  # noqa: S608
+            numRecs = dbCur.fetchone()[0]
 
         except sqlite3.Error as e:
-            log.error(f"Unable to get record count from {SRV_PROVIDER} database: '{tblName}'")
+            log.error(
+                f"Unable to get record count from {SRV_PROVIDER} database: '{tblName}'"
+            )
+            self.connect_close(True)
             raise StorageAccessError(SRV_PROVIDER) from e
 
-        return numRecs[0]
+        return numRecs
 
     def _retrieve_records_helper(
-            self,
-            dbCur: typeDefCursor,
-            numRecs: int,
-            newest: Optional[bool] = True,
-            orderBy: Optional[str] = None,
-            dbTable: Optional[str] = None,
+        self,
+        numRecs: int,
+        newest: Optional[bool] = True,
+        orderBy: Optional[str] = None,
+        dbTable: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Helper method to retrieve records from an SQLite database.
 
         Args:
-            dbCur:
-                DB cursor for current database connection
             numRecs:
                 Number of records to retrieve
             newest:
@@ -313,32 +360,46 @@ class SQLite(sql.BaseSQL):
         """
         tblName = self._dbTable if not dbTable else dbTable
         fldNames = self._dataFields.keys()
-        flds = ','.join(f"{key}" for key in fldNames)
+        flds = ",".join(f"{key}" for key in fldNames)
         sortFld = list(fldNames)[0] if orderBy is None else orderBy
+        dbConn = self.connect_open()
+
+        if self._dbConn is None:
+            log.error(f"Unable to connect to {SRV_PROVIDER} database: '{tblName}'")
+            raise StorageAccessError(SRV_PROVIDER)
+
+        dbCur = dbConn.cursor()  # type: ignore[union-attr]
 
         try:
             if newest:
                 # Get 'newest' records -- we're not using f-strings here to improve readability
-                dbCur.execute("SELECT * FROM (SELECT {flds} FROM {tbl} {inner} LIMIT {limit}) {order}".format(
-                    flds=flds,
-                    tbl=tblName,
-                    inner=create_orderby_param(sortFld, True),
-                    limit=numRecs,
-                    order=create_orderby_param(sortFld)
-                ))
+                dbCur.execute(
+                    "SELECT * FROM (SELECT {flds} FROM {tbl} {inner} LIMIT {limit}) {order}".format(  # noqa: S608
+                        flds=flds,
+                        tbl=tblName,
+                        inner=create_orderby_param(sortFld, True),
+                        limit=numRecs,
+                        order=create_orderby_param(sortFld),
+                    )
+                )
             else:
                 # Get 'oldest' records -- we're not using f-strings here to improve readability
-                dbCur.execute('SELECT {flds} FROM {tbl} {order} LIMIT {limit}'.format(
-                    flds=flds,
-                    tbl=tblName,
-                    order=create_orderby_param(sortFld),
-                    limit=numRecs
-                ))
+                dbCur.execute(
+                    "SELECT {flds} FROM {tbl} {order} LIMIT {limit}".format(  # noqa: S608
+                        flds=flds,
+                        tbl=tblName,
+                        order=create_orderby_param(sortFld),
+                        limit=numRecs,
+                    )
+                )
 
             dataRecords = dbCur.fetchall()
 
         except sqlite3.Error as e:
-            log.error(f"Failed to retrieve data from {SRV_PROVIDER} database: '{tblName}'")
+            log.error(
+                f"Failed to retrieve data from {SRV_PROVIDER} database: '{tblName}'"
+            )
+            self.connect_close(True)
             raise StorageAccessError(SRV_PROVIDER) from e
 
         data = []
@@ -350,20 +411,17 @@ class SQLite(sql.BaseSQL):
         return data
 
     def _trim_records_helper(
-            self,
-            dbCur: typeDefCursor,
-            numRecs: int,
-            newest: Optional[bool] = True,
-            orderBy: Optional[str] = None,
-            dbTable: Optional[str] = None,
+        self,
+        numRecs: int,
+        newest: Optional[bool] = True,
+        orderBy: Optional[str] = None,
+        dbTable: Optional[str] = None,
     ) -> int:
         """Helper method to trim records from an SQLite database.
 
         This is essentially the opposite of retrieving records.
 
         Args:
-            dbCur:
-                DB cursor for current database connection
             numRecs:
                 Number of records to trim
             newest:
@@ -382,20 +440,28 @@ class SQLite(sql.BaseSQL):
         tblName = self._dbTable if not dbTable else dbTable
         fldNames = self._dataFields.keys()
         sortFld = list(fldNames)[0] if orderBy is None else orderBy
+        dbConn = self.connect_open()
 
-        foundRecs = self._retrieve_records_helper(dbCur, numRecs, newest, orderBy)
+        if self._dbConn is None:
+            log.error(f"Unable to connect to {SRV_PROVIDER} database: '{tblName}'")
+            raise StorageAccessError(SRV_PROVIDER)
+
+        dbCur = dbConn.cursor()  # type: ignore[union-attr]
+
+        foundRecs = self._retrieve_records_helper(numRecs, newest, orderBy)
         delRecs = [foundRecs[i][sortFld] for i, val in enumerate(foundRecs)]
 
         try:
             for i in delRecs:
-                dbCur.execute('DELETE FROM {tbl} WHERE {fld} = {val}'.format(
-                    tbl=tblName,
-                    fld=sortFld,
-                    val="\'i\'" if isinstance(i, str) else i
-                ))
+                dbCur.execute(
+                    "DELETE FROM {tbl} WHERE {fld} = {val}".format(  # noqa: S608
+                        tbl=tblName, fld=sortFld, val="'i'" if isinstance(i, str) else i
+                    )
+                )
 
         except sqlite3.Error as e:
             log.error(f"Failed to trim data from {SRV_PROVIDER} database: '{tblName}'")
+            self.connect_close(True)
             raise StorageAccessError(SRV_PROVIDER) from e
 
         return len(delRecs)
@@ -413,9 +479,8 @@ class SQLite(sql.BaseSQL):
             'True' if table exists.
         """
         closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        is_valid = self._has_table_helper(dbConn.cursor(), dbTable)
-        self.connect_close(dbConn, closeConn)
+        is_valid = self._has_table_helper(dbTable)
+        self.connect_close(closeConn)
         return is_valid
 
     def create_table(self, dbTable: str, **kwargs: Any) -> None:
@@ -429,17 +494,14 @@ class SQLite(sql.BaseSQL):
         """
         closeConn = kwargs.get(const.KWD_CLOSE, True)
         dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
 
-        if not self._has_table_helper(dbCur, dbTable):
-            self._create_table_helper(dbCur, dbTable)
-            dbConn.commit()
+        if not self._has_table_helper(dbTable):
+            self._create_table_helper(dbTable)
+            dbConn.commit()  # type: ignore[union-attr]
 
-        self.connect_close(dbConn, closeConn)
+        self.connect_close(closeConn)
 
-    def store_records(
-        self, inData: typeDefData, **kwargs: Any
-    ) -> None:
+    def store_records(self, inData: typeDefData, **kwargs: Any) -> None:
         """Store data records in SQLite database.
 
         Args:
@@ -450,37 +512,34 @@ class SQLite(sql.BaseSQL):
         """
         closeConn = kwargs.get(const.KWD_CLOSE, True)
         dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
+
+        if not self._has_table_helper():
+            self._create_table_helper()
+            dbConn.commit()  # type: ignore[union-attr]
 
         # Ensure that we always handle a list of rows
         data = inData if isinstance(inData, list) else [inData]
 
-        if not self._has_table_helper(dbCur):
-            self._create_table_helper(dbCur)
-            dbConn.commit()
+        self._store_records_helper(data)
+        dbConn.commit()  # type: ignore[union-attr]
 
-        self._store_records_helper(dbCur, data)
-        dbConn.commit()
-
-        self.connect_close(dbConn, closeConn)
+        self.connect_close(closeConn)
 
     def count_records(self, **kwargs: Any) -> int:
         """Count number of records in SQLite database.
 
         Args:
             kwargs:
-                - 'close' -- close DB connection if 'True'
+                'close' -- close DB connection if 'True'
 
         Returns:
             Number of records in a table
         """
         closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
 
-        numRecs = self._count_records_helper(dbCur)
+        numRecs = self._count_records_helper()
 
-        self.connect_close(dbConn, closeConn)
+        self.connect_close(closeConn)
         return numRecs
 
     def retrieve_records(self, numRecs: int = 1, **kwargs: Any) -> List[Dict[str, Any]]:
@@ -490,23 +549,21 @@ class SQLite(sql.BaseSQL):
             numRecs:
                 Number of records to retrieve
             kwargs:
-                - 'close'    -- close DB connection if 'True'
-                - 'order_by' -- Field to sorted by
-                - 'first'    -- If TRUE, retrieve first 'numRecs' records.
-                                Else retrieve last 'numRecs' records.
+                'close'    -- close DB connection if 'True'
+                'order_by' -- Field to sorted by
+                'first'    -- If TRUE, retrieve first 'numRecs' records.
+                              Else retrieve last 'numRecs' records.
+
         Returns:
             List of records
         """
         orderBy = kwargs.get(const.KWD_ORDER_BY, None)
         newest = kwargs.get(const.KWD_NEWEST, True)
-
         closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
 
-        foundRecs = self._retrieve_records_helper(dbCur, numRecs, newest, orderBy)
+        foundRecs = self._retrieve_records_helper(numRecs, newest, orderBy)
 
-        self.connect_close(dbConn, closeConn)
+        self.connect_close(closeConn)
         return foundRecs
 
     def trim_records(self, numRecs: int = 0, **kwargs: Any) -> int:
@@ -519,6 +576,7 @@ class SQLite(sql.BaseSQL):
                 'order_by'  - Field to sorted by
                 'newest'    - If TRUE, retrieve first 'numRecs' records.
                               Else retrieve last 'numRecs' records.
+
         Returns:
             List of records
         """
@@ -526,12 +584,10 @@ class SQLite(sql.BaseSQL):
         newest = kwargs.get(const.KWD_NEWEST, True)
 
         closeConn = kwargs.get(const.KWD_CLOSE, True)
-        dbConn = self.connect_open()
-        dbCur = dbConn.cursor()
 
-        trimRecs = self._trim_records_helper(dbCur, numRecs, newest, orderBy)
+        trimRecs = self._trim_records_helper(numRecs, newest, orderBy)
 
-        self.connect_close(dbConn, closeConn)
+        self.connect_close(closeConn)
         return trimRecs
 
 
@@ -552,20 +608,22 @@ def create_orderby_param(inStr: str, flip: bool = False) -> str:
     """
 
     def _flip_orderby(s: str, flg: bool = False) -> str:
-        if s == 'ASC':
-            return 'ASC' if not flg else 'DESC'
+        if s == "ASC":
+            return "ASC" if not flg else "DESC"
 
-        return 'DESC' if not flg else 'ASC'
+        return "DESC" if not flg else "ASC"
 
-    parts = inStr.split('|')
+    parts = inStr.split("|")
     if len(parts) < 1:
-        return ''
+        return ""
 
-    outStr = 'ASC' if len(parts) == 1 else parts[1].upper()
+    outStr = "ASC" if len(parts) == 1 else parts[1].upper()
     return f"ORDER BY {parts[0]} {_flip_orderby(outStr, flip)}"
 
 
-def verify_db_file(dbHost: Union[Path, str], serviceName: str, strict: bool) -> Union[Path, str]:
+def verify_db_file(
+    dbHost: Union[Path, str], serviceName: str, strict: bool
+) -> Union[Path, str]:
     """Verify that database file exists.
 
     This method is really designed to verify that a SQLite database file exists. However, SQLite
@@ -584,7 +642,11 @@ def verify_db_file(dbHost: Union[Path, str], serviceName: str, strict: bool) -> 
         Path/file/name of database.
     """
     if serviceName == const.STORAGE_SQLITE:
-        return const.KWD_IN_MEMORY if (str(dbHost).lower() == const.KWD_IN_MEMORY) else verify_file(dbHost, strict)
+        return (
+            const.KWD_IN_MEMORY
+            if (str(dbHost).lower() == const.KWD_IN_MEMORY)
+            else verify_file(str(dbHost), strict)
+        )
 
     # Houston, we have a problem!
     return ""

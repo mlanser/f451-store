@@ -25,7 +25,7 @@ from f451_store.providers.provider import verify_file
 log = logging.getLogger()
 pp = pprint.PrettyPrinter(indent=4)
 
-typeDefFormats = Union[Mapping[str, Callable[[Any], Any]], Dict[str, str]]
+typeDefFormats = Union[Mapping[str, Callable[[Any], Any]], Dict[str, Any]]
 
 
 # =========================================================
@@ -61,14 +61,14 @@ class BaseTXT(Provider):
             serviceName,
             configSection,
             verify_file(
-                kwargs.get(const.KWD_DB_HOST, ''),
-                not kwargs.get(const.KWD_CREATE, False)
+                kwargs.get(const.KWD_DB_HOST, ""),
+                not kwargs.get(const.KWD_CREATE, False),
             ),  # 'dbHost' is a filename
-            '',     # 'dbPort' is not used for file-based storage
-            '',     # 'dbName' is not used for file-based storage
-            '',     # 'dbTable' is not used for file-based storage
-            '',     # 'dbUserName' is not used for file-based storage
-            '',     # 'dbUserPswd' is not used for file-based storage
+            "",  # 'dbPort' is not used for file-based storage
+            "",  # 'dbName' is not used for file-based storage
+            "",  # 'dbTable' is not used for file-based storage
+            "",  # 'dbUserName' is not used for file-based storage
+            "",  # 'dbUserPswd' is not used for file-based storage
         )
         self._dataFields = verify_db_fields(dataFields, dataFormats, serviceName)
         self._dataFormats: typeDefFormats = dataFormats
@@ -91,7 +91,7 @@ class BaseTXT(Provider):
         return self._dataFields
 
     @property
-    def formatMap(self) -> Mapping[str, Callable[[Any], Any]]:
+    def formatMap(self) -> typeDefFormats:
         """Return 'formatMap' property."""
         return self._dataFormats
 
@@ -124,7 +124,9 @@ class BaseTXT(Provider):
 
     def has_table(self, **kwargs: Any) -> bool:
         """Dummy function to ensure consistency with SQL-type storage."""
-        log.info(f"{self._srvName} is a text-file based service and does not have tables.")
+        log.info(
+            f"{self._srvName} is a text-file based service and does not have tables."
+        )
         return False
 
     def _process_row(self, rowIn: Dict[str, str]) -> Dict[str, Any]:
@@ -152,7 +154,9 @@ class BaseTXT(Provider):
 # =========================================================
 #              U T I L I T Y   F U N C T I O N S
 # =========================================================
-def verify_db_fields(dbFlds: Dict[str, str], dataFormats: typeDefFormats, serviceName: str) -> Dict[str, str]:
+def verify_db_fields(
+    dbFlds: Dict[str, str], dataFormats: typeDefFormats, serviceName: str
+) -> Dict[str, str]:
     """Verify data fields."""
     if not set(dbFlds.values()).issubset(set(dataFormats.keys())):
         log.error(f"Invalid {serviceName} data formats in data fields")

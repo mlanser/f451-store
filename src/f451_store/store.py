@@ -78,7 +78,17 @@ class Store(provider.Provider):
     """
 
     def __init__(self, config: Any = None) -> None:
-        super().__init__(const.SRV_TYPE_MAIN, _SRV_PROVIDER_, _SRV_CONFIG_SCTN_)
+        super().__init__(
+            const.SRV_TYPE_MAIN,
+            _SRV_PROVIDER_,
+            _SRV_CONFIG_SCTN_,
+            dbHost="",
+            dbPort="",
+            dbName="",
+            dbTable="",
+            dbUserName="",
+            dbUserPswd="",
+        )
 
         settings = utils.process_config(config, False)
 
@@ -173,8 +183,8 @@ class Store(provider.Provider):
         )
 
         return CSV(
-            Path(settings.get(const.STORAGE_CSV, const.KWD_FNAME, fallback="")),
             fldMap,
+            dbHost=Path(settings.get(const.STORAGE_CSV, const.KWD_FNAME, fallback="")),
         )
 
     @staticmethod
@@ -188,8 +198,8 @@ class Store(provider.Provider):
         )
 
         return JSON(
-            Path(settings.get(const.STORAGE_JSON, const.KWD_FNAME, fallback="")),
             fldMap,
+            dbHost=Path(settings.get(const.STORAGE_JSON, const.KWD_FNAME, fallback="")),
         )
 
     @staticmethod

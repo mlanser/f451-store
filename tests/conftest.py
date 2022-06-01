@@ -42,7 +42,7 @@ KWD_TEST_SCTN = "test_sctn"  # NOTE: ConfigParser converts all keys to
 KWD_TEST_KEY = "test_key"  # lower case as they follow .ini syntax
 KWD_TEST_VAL = "test_val"  # rules for key attributes
 
-KEY_FLD_NAME = 'ID'  # We're using this in various tests
+KEY_FLD_NAME = "ID"  # We're using this in various tests
 
 DEFAULT_ATTRIBS_DICT = {
     KWD_TEST_KEY: KWD_TEST_VAL,
@@ -50,9 +50,7 @@ DEFAULT_ATTRIBS_DICT = {
     "k12": "v12",
 }
 DEFAULT_CONFIG_DICT = {KWD_TEST_SCTN: DEFAULT_ATTRIBS_DICT}
-DEFAULT_CONFIG_STR = (
-    f"{KWD_TEST_SCTN}|{KWD_TEST_KEY}:{KWD_TEST_VAL},k11:v11,k12:v12"
-)
+DEFAULT_CONFIG_STR = f"{KWD_TEST_SCTN}|{KWD_TEST_KEY}:{KWD_TEST_VAL},k11:v11,k12:v12"
 DEFAULT_SERVICE_STR = "f451_json|f451_sqlite"
 
 DEFAULT_TEST_SECRETS = {

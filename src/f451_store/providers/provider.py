@@ -20,8 +20,8 @@ from rich.pretty import pprint as rpp
 from rich.rule import Rule
 
 import f451_store.constants as const
-from f451_store.exceptions import StorageConnectionError
 from f451_store.exceptions import InvalidAttributeError
+from f451_store.exceptions import StorageConnectionError
 
 __all__ = [
     "Response",
@@ -120,16 +120,16 @@ class Provider(ABC):
 
     The following info is required:
 
-                |   File-based    ||         SQL-type
-    ------------|-----------------||--------------------------
-                |   CSV  |  JSON  || SQLite |  MySQL |Postgres
-    ------------|--------|--------||--------|--------|--------
-    dbHost      |   x    |   x    ||   x    |   x    |   x
-    dbPort      |        |        ||        |   x    |   x
-    dbName      |        |        ||        |   x    |   x
-    dbTable     |        |        ||   x    |   x    |   x
-    dbUserName  |        |        ||        |   x    |   x
-    dbUserPswd  |        |        ||        |   x    |   x
+                |   File-based    | SQL-type
+    _________________________________________
+                |   CSV  |  JSON  |  SQLite
+    _________________________________________
+    dbHost      |   x    |   x    |     x
+    dbPort      |        |        |
+    dbName      |        |        |
+    dbTable     |        |        |     x
+    dbUserName  |        |        |
+    dbUserPswd  |        |        |
 
     Attributes:
         serviceType:

@@ -11,8 +11,8 @@ from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
-from typing import Optional
 from typing import Mapping
+from typing import Optional
 from typing import Union
 
 import f451_store.constants as const
@@ -60,12 +60,16 @@ class BaseSQL(Provider):
             serviceType,
             serviceName,
             configSection,
-            verify_not_empty(kwargs.get(const.KWD_DB_HOST, ''), True, const.KWD_DB_HOST),
-            kwargs.get(const.KWD_DB_PORT, ''),
-            kwargs.get(const.KWD_DB_NAME, ''),
-            verify_not_empty(kwargs.get(const.KWD_DB_TABLE, ''), True, const.KWD_DB_TABLE),
-            kwargs.get(const.KWD_DB_USER_NAME, ''),
-            kwargs.get(const.KWD_DB_USER_PSWD, ''),
+            verify_not_empty(
+                kwargs.get(const.KWD_DB_HOST, ""), True, const.KWD_DB_HOST
+            ),
+            kwargs.get(const.KWD_DB_PORT, ""),
+            kwargs.get(const.KWD_DB_NAME, ""),
+            verify_not_empty(
+                kwargs.get(const.KWD_DB_TABLE, ""), True, const.KWD_DB_TABLE
+            ),
+            kwargs.get(const.KWD_DB_USER_NAME, ""),
+            kwargs.get(const.KWD_DB_USER_PSWD, ""),
         )
         self._dataFields = verify_db_fields(dataFields, dataFormats, serviceName)
         self._dataFormats: typeDefFormats = dataFormats
@@ -88,7 +92,7 @@ class BaseSQL(Provider):
         return self._dataFields
 
     @property
-    def formatMap(self) -> Dict[str, str]:
+    def formatMap(self) -> typeDefFormats:
         """Return 'formatMap' property."""
         return self._dataFormats
 
@@ -136,19 +140,22 @@ def create_orderby_param(inStr: str, flip: bool = False) -> str:
             Original 'orderBy' parameter string.
         flip:
             If 'True' then turn 'ASC' to 'DESC" and vice versa
+
+    Returns:
+        Proper 'ORDER BY' string.
     """
 
     def _flip_orderby(s: str, flg: bool = False) -> str:
-        if s == 'ASC':
-            return 'ASC' if not flg else 'DESC'
+        if s == "ASC":
+            return "ASC" if not flg else "DESC"
 
-        return 'DESC' if not flg else 'ASC'
+        return "DESC" if not flg else "ASC"
 
-    parts = inStr.split('|')
+    parts = inStr.split("|")
     if len(parts) < 1:
-        return ''
+        return ""
 
-    outStr = 'ASC' if len(parts) == 1 else parts[1].upper()
+    outStr = "ASC" if len(parts) == 1 else parts[1].upper()
     return f"ORDER BY {parts[0]} {_flip_orderby(outStr, flip)}"
 
 
@@ -175,12 +182,16 @@ def verify_not_empty(inStr: str, strict: bool, varName: Optional[str] = None) ->
 
     if strict and not tmpStr:
         log.error(f"{'<blank>' if not varName else varName} string is empty.")
-        raise InvalidAttributeError(f"{'<blank>' if not varName else varName} string cannot be empty.")
+        raise InvalidAttributeError(
+            f"{'<blank>' if not varName else varName} string cannot be empty."
+        )
 
     return tmpStr
 
 
-def verify_db_fields(dbFlds: Dict[str, str], dataFormats: typeDefFormats, serviceName: str) -> Dict[str, str]:
+def verify_db_fields(
+    dbFlds: Dict[str, str], dataFormats: typeDefFormats, serviceName: str
+) -> Dict[str, str]:
     """Verify data fields."""
     if not set(dbFlds.values()).issubset(set(dataFormats.keys())):
         log.error(f"Invalid {serviceName} data formats in data fields")
