@@ -30,7 +30,7 @@ pytest = "^7.1.2"
 pytest-mock = "^3.7.0"
 coverage = {extras = ["toml"], version = "^6.1"}
 safety = "^1.10.3"
-mypy = "^0.950"
+mypy = "^0.960"
 nox = "^2022.1.7"
 typeguard = "^2.13.2"
 xdoctest = {extras = ["colors"], version = "^1.0.0"}
