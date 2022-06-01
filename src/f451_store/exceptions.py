@@ -41,7 +41,7 @@ class f451StoreExceptionError(Exception):
         self.message = kwargs.get("message")
         self.data = kwargs.get("data")
         self.response = kwargs.get("response")
-        super().__init__(self.message)
+        super().__init__(f"{self.service} - {self.message}")
 
     def __repr__(self) -> str:
         return f"<f451StoreError: {self.message}>"
@@ -92,30 +92,53 @@ class MissingAttributeError(f451StoreExceptionError):
         return f"<MissingAttributeError: {self.message}>"
 
 
-class InvalidServiceError(f451StoreExceptionError):
-    """Invalid service provider.
+class InvalidStorageError(f451StoreExceptionError):
+    """Invalid storage service.
 
-    Service provider is either unknown or not enabled.
+    Storage service is either unknown or not enabled.
 
     Args:
-        errMsg:
-            error message for missing (required) 'attribute'
+        storage:
+            Name of storage service
         args:
-            exception arguments
+            Exception arguments
         kwargs:
-            exception kwargs
+            Exception kwargs
     """
 
-    def __init__(self, serviceName: str, *args: Any, **kwargs: Any) -> None:
-        self.name = serviceName
-        kwargs["message"] = f"Invalid service provider: {serviceName}"
+    def __init__(self, storage: str, *args: Any, **kwargs: Any) -> None:
+        self.storage = storage
+        kwargs["message"] = f"Invalid storage: {storage}"
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
-        return f"<InvalidServiceError: {self.name}>"
+        return f"<InvalidStorageError: {self.storage}>"
 
 
-class ConnectionError(f451StoreExceptionError):
+class StorageAccessError(f451StoreExceptionError):
+    """Storage write error.
+
+    Unable to write s=data to storage service.
+
+    Args:
+        storage:
+            Name of storage service
+        args:
+            Exception arguments
+        kwargs:
+            Exception kwargs
+    """
+
+    def __init__(self, storage: str, *args: Any, **kwargs: Any) -> None:
+        self.storage = storage
+        kwargs["message"] = f"Unable to write data to storage: {storage}"
+        super().__init__(*args, **kwargs)
+
+    def __repr__(self) -> str:
+        return f"<InvalidStorageError: {self.storage}>"
+
+
+class StorageConnectionError(f451StoreExceptionError):
     """Connection error.
 
     This is raised when a service returns an error.
@@ -135,9 +158,9 @@ class ConnectionError(f451StoreExceptionError):
         kwargs["message"] = (
             _ERROR_UNKNOWN_
             if self.errors is None
-            else f"Connection errors: {','.join(self.errors)}"
+            else f"Storage connection errors: {','.join(self.errors)}"
         )
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
-        return f"<ConnectionError: {self.message}>"
+        return f"<StorageConnectionError: {self.message}>"

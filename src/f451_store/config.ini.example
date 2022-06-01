@@ -1,0 +1,10 @@
+[f451_main]
+storage = _DEFAULT_SERVICE_ONE_|_DEFAULT_SERVICE_TWO_
+storage_map = csv:f451_csv|json:f451_json|sqlite:f451_sqlite
+field_map = "_FLD1_:_PSEUDO_UNIT_|_FLD2_:_PSEUDO_UNIT_ ... _FLDn_:_PSEUDO_UNIT_"
+
+[f451_csv]
+
+[f451_json]
+
+[f451_sqlite]

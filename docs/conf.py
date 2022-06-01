@@ -14,9 +14,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx_argparse_cli",
-    "sphinx_click",
+    # "sphinx_click",
     # "sphinx_rtd_theme",
-    # "furo",
 ]
 
 # Misc settings

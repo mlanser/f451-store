@@ -9,7 +9,10 @@ from abc import ABC
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any
+from typing import Dict
+from typing import List
 from typing import Optional
+from typing import Union
 
 from requests import Response as reqResponse
 from rich import print as rprint
@@ -17,93 +20,36 @@ from rich.pretty import pprint as rpp
 from rich.rule import Rule
 
 import f451_store.constants as const
-from f451_store.exceptions import ConnectionError
 from f451_store.exceptions import InvalidAttributeError
-
-# from typing import List
-# import f451_store.utils as utils
-
-# from f451_store.processor import AttributeProcessor
+from f451_store.exceptions import StorageConnectionError
 
 __all__ = [
-    # "Media",
-    # "Response",
+    "Response",
     "Provider",
-    # "verify_file",
-    # "verify_media_file",
-    # "process_media_list",
+    "is_valid_file",
+    "verify_file",
 ]
 
 # =========================================================
 #          G L O B A L S   A N D   H E L P E R S
 # =========================================================
-_MAX_MEDIA_SIZE_: int = 25  # Max file seize 25MB
-_MAX_MEDIA_: int = 10
-
 log = logging.getLogger()
 pp = pprint.PrettyPrinter(indent=4)
+
+# Default set of valid (pseudo) formats
+DATA_FORMATS = (
+    const.FMT_KWD_STR,  # strings (e.g. "some long string")
+    const.FMT_KWD_STRIDX,  # strings as index (for SQL data stores)
+    const.FMT_KWD_INT,  # integers (e.g. 1, 2, 3, ... gazillion ... maybe ;-)
+    const.FMT_KWD_INTIDX,  # integers as index (for SQL data stores)
+    const.FMT_KWD_FLOAT,  # floats (e.g. 0.1. 0.22, 0.333, ... )
+    const.FMT_KWD_BOOL,  # booleans (e.g. True|False, Yes|No, etc.)
+)
 
 
 # =========================================================
 #       C O M M O N   U T I L I T Y    C L A S S E S
 # =========================================================
-# class Media(AttributeProcessor):
-#     """Processor class for 'media' lists.
-#
-#     Attributes:
-#         inList:
-#             Single filename (string) or list with one or more filenames
-#         maxNum:
-#             Max number of filenames in list
-#     """
-#
-#     def __init__(self, inList: Any, maxNum: int) -> None:
-#         super().__init__(
-#             keyword=const.KWD_MEDIA,
-#             required=const.ATTR_OPTIONAL,
-#         )
-#         self._data: List[str] = []
-#         self._minNum = 0  # attachments are optional
-#         self._maxNum = max(
-#             self._minNum, maxNum
-#         )  # 'max' num cannot be smaller than 'min'
-#         self._valid = True
-#         self.data = inList
-#
-#     @property
-#     def data(self) -> List[str]:
-#         """Return 'data' property."""
-#         return self._data
-#
-#     @data.setter
-#     def data(self, inList: Any) -> None:
-#         """Set 'data' property."""
-#         self._data = process_media_list(inList, self._maxNum)
-#
-#     @property
-#     def minNum(self) -> int:
-#         """Return 'minNum' property."""
-#         return self._minNum
-#
-#     @property
-#     def maxNum(self) -> int:
-#         """Return 'maxNum' property."""
-#         return self._maxNum
-#
-#     @property
-#     def totNum(self) -> int:
-#         """Return 'totNum' property."""
-#         return len(self._data)
-#
-#     @property
-#     def raw(self) -> List[str]:
-#         """Return raw value from 'data' property."""
-#         return self._data
-#
-#     @property
-#     def clean(self) -> List[str]:
-#         """Return normalized value from 'data' property."""
-#         return self._data
 
 
 # =========================================================
@@ -153,10 +99,10 @@ class Response:
         """Raise exception on error in request response.
 
         Raises:
-             ConnectionError: if request response has errors
+             StorageConnectionError: if request response has errors
         """
         if self.errors:
-            raise ConnectionError(
+            raise StorageConnectionError(
                 provider=self.provider,
                 data=self.data,
                 errors=self.errors,
@@ -170,15 +116,40 @@ class Response:
 
 
 class Provider(ABC):
-    """Base class for service providers.
+    """Base class for data storage providers.
+
+    The following info is required:
+
+                |   File-based    | SQL-type
+    _________________________________________
+                |   CSV  |  JSON  |  SQLite
+    _________________________________________
+    dbHost      |   x    |   x    |     x
+    dbPort      |        |        |
+    dbName      |        |        |
+    dbTable     |        |        |     x
+    dbUserName  |        |        |
+    dbUserPswd  |        |        |
 
     Attributes:
         serviceType:
-            communication/service type (e.g. email,  SMS, etc.)
+            data storage type (e.g. CSV, JSON, SQL, etc.)
         serviceName:
-            communication/service name (e.g. Mailgun, Twilio, etc.)
+            data storage name (e.g. CSV, JSON, SQLite, PostgreSQL, etc.)
         configSection:
-            name of section in config files (e.g. f451_mailgun, f451_twilio, etc.)
+            name of section in config files (e.g. f451_csv, f451_sqlite, etc.)
+        dbHost:
+            name of database host (for SQL) and database file (for file-based)
+        dbPort:
+            port number for database host (for SQL)
+        dbName:
+            database name (for SQL)
+        dbTable:
+            database table name (for SQL)
+        dbUserName:
+            database username for (for MySQL and Postgres)
+        dbUserPswd:
+            database user password for (for MySQL and Postgres)
     """
 
     def __init__(
@@ -186,10 +157,22 @@ class Provider(ABC):
         serviceType: str,
         serviceName: str,
         configSection: str,
+        dbHost: str,
+        dbPort: str,
+        dbName: str,
+        dbTable: str,
+        dbUserName: str,
+        dbUserPswd: str,
     ) -> None:
-        self._srvtype = serviceType
-        self._srvName = serviceName
-        self._sctnName = configSection
+        self._srvtype: str = serviceType
+        self._srvName: str = serviceName
+        self._sctnName: str = configSection
+        self._dbHost: str = dbHost
+        self._dbPort: str = dbPort
+        self._dbName: str = dbName
+        self._dbTable: str = dbTable
+        self._dbUserName: str = dbUserName
+        self._dbUserPswd: str = dbUserPswd
 
     def __repr__(self) -> str:
         return f"<Provider, type={self._srvtype}, name={self._srvName}>"
@@ -208,6 +191,75 @@ class Provider(ABC):
     def configSection(self) -> str:
         """Return 'configSection' property."""
         return self._sctnName
+
+    @property
+    def dbHost(self) -> str:
+        """Return 'dbHost' property."""
+        return self._dbHost
+
+    @property
+    def dbPort(self) -> str:
+        """Return 'dbPort' property."""
+        return self._dbPort
+
+    @property
+    def dbName(self) -> str:
+        """Return 'dbName' property."""
+        return self._dbName
+
+    @property
+    def dbTable(self) -> str:
+        """Return 'dbTable' property."""
+        return self._dbTable
+
+    @property
+    def dbUserName(self) -> str:
+        """Return 'dbUserName' property."""
+        return self._dbUserName
+
+    @property
+    def dbUserPswd(self) -> str:
+        """Return 'dbUserPswd' property."""
+        return self._dbUserPswd
+
+    @property
+    def totalRecords(self) -> int:
+        """Return 'totalRecords' property."""
+        return self.count_records()
+
+    @abstractmethod
+    def store_records(
+        self, inData: Union[List[Dict[str, Any]], Dict[str, Any]]
+    ) -> None:
+        """Stub for 'store_data()' method."""
+        pass
+
+    @abstractmethod
+    def retrieve_records(self, numRecs: int = 1, **kwargs: Any) -> List[Dict[str, Any]]:
+        """Stub for 'retrieve_data()' method."""
+        pass
+
+    @abstractmethod
+    def trim_records(self, numRecs: int = 0, **kwargs: Any) -> int:
+        """Trim first or last 'numREcs' records."""
+        pass
+
+    @abstractmethod
+    def count_records(self, **kwargs: Any) -> int:
+        """Return number of records based on set of criteria."""
+        pass
+
+    def save_data(self, inData: Union[List[Dict[str, Any]], Dict[str, Any]]) -> None:
+        """Wrapper for 'store_data()' method."""
+        return self.store_records(inData)
+
+    def get_data(self, numRecs: int = 1, **kwargs: Any) -> List[Dict[str, Any]]:
+        """Wrapper for 'retrieve_data()' method."""
+        return self.retrieve_records(numRecs, **kwargs)
+
+    def delete_data(self, numRecs: int = 0, **kwargs: Any) -> int:
+        """Wrapper for 'retrieve_data()' method."""
+        return self.trim_records(numRecs, **kwargs)
 
     def _make_response(
         self,
@@ -241,101 +293,58 @@ class Provider(ABC):
             errors=errors,
         )
 
-    @abstractmethod
-    def send_message(self, msg: str, **kwargs: Any) -> Any:
-        """Stub for 'send_message()' method."""
-        pass
-
 
 # =========================================================
 #              U T I L I T Y   F U N C T I O N S
 # =========================================================
-def verify_file(fName: str, strict: bool) -> bool:
+def is_valid_file(fName: Union[Path, str]) -> bool:
     """Verify that a file exists.
+
+    Args:
+        fName:
+            Single filename (Path object or string).
+
+    Returns:
+        'True' if files exists.
+    """
+    fp = Path(fName) if isinstance(fName, str) else fName
+    return fp.exists() and fp.is_file()
+
+
+def verify_file(fName: str, strict: bool) -> str:
+    """Verify that a file exists and return Path object.
 
     This function will raise an exception if 'strict' is set to 'True'.
 
     Args:
         fName:
-            Single filename (string).
+            Single filename (Path object or string).
         strict:
             If 'True' then exception is raised when file does not exist
 
     Returns:
-        'True' if files exists. If file does not exist or filename is
-        blank (and 'strict' is set to 'False') then we return 'False'.
+        Given file name 'str' if it exists and 'strict' is 'True'. This will
+        also return an empty string if the path is not valid.
 
     Raises:
         InvalidAttributeError: If file does not exist
     """
-    if strict and (not Path(fName).exists() or not fName.strip()):
+    isValid = is_valid_file(fName)
+
+    if strict and not isValid:
         log.error(f"File '{fName or '<blank>'}' does not exist.")
         raise InvalidAttributeError(f"File '{fName or '<blank>'}' does not exist.")
 
-    return Path(fName).exists() if fName.strip() else False
-
-
-# def verify_media_file(fName: str, validFmts: List[str], strict: bool) -> bool:
-#     """Verify that an image file exists and has proper format.
-#
-#     This function will raise an exception if 'strict' is set to 'True'.
-#
-#     Args:
-#         fName:
-#             Single filename (string).
-#         validFmts:
-#             'list' of valid image formats (e.g. jpeg, png, etc.)
-#         strict:
-#             If 'True' then exception is raised when file does not exist
-#
-#     Returns:
-#         'True' if files exists. If file does not exist or filename is
-#         blank (and 'strict' is set to 'False') then we return 'False'.
-#
-#     Raises:
-#         InvalidAttributeError: If file does not exist
-#     """
-#     if strict and not (imghdr.what(fName) in validFmts and fName.strip()):
-#         log.error(f"File '{fName or '<blank>'}' is not a valid media file.")
-#         raise InvalidAttributeError(
-#             f"File '{fName or '<blank>'}'  is not a valid media file."
-#         )
-#
-#     return Path(fName).exists() if fName.strip() else False
-
-
-# def process_media_list(
-#     inList: Any,
-#     maxNum: int = _MAX_MEDIA_,
-#     strict: bool = False,
-# ) -> List[str]:
-#     """Process list of media files.
-#
-#     'inList' can be a single string if it's only 1 attachment. Or it can
-#     be a list of one or more file names string.
-#
-#     Args:
-#         inList:
-#             Single filename (string), or list of one or more file name strings.
-#         maxNum:
-#             Max number of media files
-#         strict:
-#             If 'True' then exception is raised when file does not exist, otherwise
-#             filename is simply skipped
-#
-#     Returns:
-#         String with zero or more filenames
-#     """
-#     tmpList = (
-#         inList if isinstance(inList, list) else utils.convert_attrib_str_to_list(inList)
-#     )
-#     fileList = [item.strip() for item in tmpList if verify_file(item.strip(), strict)]
-#
-#     return fileList[:maxNum]
+    return fName
 
 
 def pretty_print_response_records(inData: Any) -> None:
-    """Helper: Pretty print response records."""
+    """Helper: Pretty print response records.
+
+    Args:
+        inData:
+            Data (response records) to be printed.
+    """
 
     def _print_item(item: Any, printRule: bool = False) -> None:
         if printRule:

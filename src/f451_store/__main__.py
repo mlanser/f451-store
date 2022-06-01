@@ -1,12 +1,15 @@
 """Demo for using f451 Datastore module."""
 import argparse
 import logging
+import os
 import re
 import sys
 from configparser import ConfigParser
 from configparser import ExtendedInterpolation
 from pathlib import Path
 from typing import Any
+from typing import Dict
+from typing import List
 
 import konsole
 from faker import Faker
@@ -17,12 +20,8 @@ from rich.rule import Rule
 import f451_store.constants as const
 from . import __app_name__
 from . import __version__
+from f451_store.store import Store
 
-# import os
-# from typing import Dict
-# from typing import List
-
-# from f451_store.store import Store
 # from f451_store.exceptions import MissingAttributeError
 
 
@@ -42,7 +41,7 @@ _APP_ENV_SECRETS_: str = f"{_APP_NORMALIZED_}_SECRETS"
 
 # Default CONFIG, SECRETS, and LOG filenames
 # NOTE: these default filenames are used to search for files in degfault
-#       locations if no files are inicated in OS ENVIRON vars or supplied
+#       locations if no files are indicated in OS ENVIRON vars or supplied
 #       in CLI args.
 # NOTE: we allow user to store secrets (i.e. API keys and other environ
 #       secrets that should not go github), separately from 'safe' config
@@ -56,6 +55,32 @@ _APP_SECRETS_: str = "f451-store.secrets.ini"
 # =========================================================
 #              H E L P E R   F U N C T I O N S
 # =========================================================
+def _pretty_print_storage_info(
+    srvName: Any, dbName: Any, numRecs: Any, totRecs: Any
+) -> None:
+    rprint(f"{srvName} DB: {dbName}")
+    rprint(f"Generated and stored {numRecs} new data records.")
+    rprint(f"There are now a total of {totRecs} records stored.")
+    rprint(Rule())
+
+
+def _create_sample_data(recs: int = 0) -> List[Dict[str, Any]]:
+    data = []
+    recs = max(0, min(recs, 100))
+
+    for _ in range(recs):
+        data.append(
+            {
+                "ssn": faker.ssn(),
+                "name": faker.name(),
+                "addr": faker.street_address(),
+                "salary": faker.pyint(1000, 9999) * 100,
+            }
+        )
+
+    return data
+
+
 def init_cli_parser() -> argparse.ArgumentParser:
     """Initialize CLI (ArgParse) parser.
 
@@ -79,18 +104,32 @@ def init_cli_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Run in debug mode")
     parser.add_argument(
-        "--storage",
+        "--store",
         action="store",
-        default=const.STORAGE_SQLITE,
+        # default=const.STORAGE_SQLITE,
+        # default=const.STORAGE_JSON,
+        # default=const.STORAGE_CSV,
+        default=const.STORAGE_ALL,
         type=str,
-        help="Data storage to use",
+        help="Data storage file, database, or service to use",
     )
     parser.add_argument(
-        "--data",
+        "--type",
         action="store",
-        default="Testing 'f451-comms' module -- <some random text>",
         type=str,
-        help="Data to store",
+        help="Data storage type to use (e.g. CSV, JSON, SQL, etc.)",
+    )
+
+    parser.add_argument(
+        "--recs", action="store", default=10, type=int, help="Number of recs to store"
+    )
+
+    parser.add_argument(
+        "--action",
+        action="store",
+        default=const.KWD_STORE,
+        type=str,
+        help="Action: 'store' or 'retrieve'",
     )
     parser.add_argument(
         "--secrets",
@@ -214,50 +253,52 @@ def main(inArgs: Any = None) -> None:  # noqa: C901
 
     konsole.config(level=konsole.DEBUG if cliArgs.debug else konsole.ERROR)
 
-    # Initialize main Communications Module with 'config' and 'secrets' data
-    # comms = Comms(
-    #     init_ini_parser(
-    #         [
-    #             (
-    #                 cliArgs.config
-    #                 or (
-    #                     os.environ.get(_APP_ENV_CONFIG_)
-    #                     or get_valid_location(_APP_CONFIG_)
-    #                 )
-    #             ),
-    #             (
-    #                 cliArgs.secrets
-    #                 or (
-    #                     os.environ.get(_APP_ENV_SECRETS_)
-    #                     or get_valid_location(_APP_SECRETS_)
-    #                 )
-    #             ),
-    #         ]
-    #     )
-    # )
+    # Initialize main Datastorage Module with 'config' and 'secrets' data
+    store = Store(
+        init_ini_parser(
+            [
+                (
+                    cliArgs.config
+                    or (
+                        os.environ.get(_APP_ENV_CONFIG_)
+                        or get_valid_location(_APP_CONFIG_)
+                    )
+                ),
+                (
+                    cliArgs.secrets
+                    or (
+                        os.environ.get(_APP_ENV_SECRETS_)
+                        or get_valid_location(_APP_SECRETS_)
+                    )
+                ),
+            ]
+        )
+    )
 
-    # Exit if invalid channel
-    # availableChannels = (
-    #     comms.valid_channels
-    #     if cliArgs.channel == const.CHANNEL_ALL
-    #     else comms.process_channel_list(cliArgs.channel.split(const.DELIM_STD))
-    # )
+    # Exit if invalid storage service
+    availableStorage = (
+        store.valid_storage
+        if cliArgs.store == const.STORAGE_ALL
+        else store.process_storage_list(cliArgs.store.split(const.DELIM_STD))
+    )
 
-    # if not comms.is_valid_channel(availableChannels):
-    #     rprint(f"ERROR: '{cliArgs.channel}' is not a valid communications channel!")
-    #     sys.exit(1)
+    if not store.is_valid_storage(availableStorage):
+        rprint(f"ERROR: '{cliArgs.store}' is not a valid datastore!")
+        sys.exit(1)
+
+    data = _create_sample_data(cliArgs.recs)
 
     # -----------------------
     # Run communication demos
     # -----------------------
     rprint(Rule())
     # -----------------------
-    rprint("[bold black on white] - Available Channels - [/bold black on white]")
-    # if comms.channels:
-    #     for key, val in comms.channels.items():  # type: ignore[union-attr]
-    #         rprint(f"{key:.<20.20}: {'ON' if val else 'OFF'}")
-    # else:
-    #     rprint("There are no channels enabled!")
+    rprint("[bold black on white] - Available Storage - [/bold black on white]")
+    if store.storage:
+        for key, val in store.storage.items():
+            rprint(f"{key:.<20.20}: {'ON' if val else 'OFF'}")
+    else:
+        rprint("There are no storage services enabled!")
     rprint(Rule())
 
     # -----------------------
@@ -266,30 +307,42 @@ def main(inArgs: Any = None) -> None:  # noqa: C901
     #     f"[bold black on white] - Broadcast to {availableChannels} - [/bold black on white]"
     # )
     # try:
-    #     comms.send_message(cliArgs.msg, **{const.KWD_CHANNELS: availableChannels})
+    #     store.send_message(cliArgs.msg, **{const.KWD_CHANNELS: availableChannels})
     #
     # except (MissingAttributeError, CommunicationsError) as e:
     #     rprint(e)
 
     # -----------------------
-    # - 2 - Send Email via Mailgun
-    # if const.CHANNEL_MAILGUN in availableChannels:
-    #     send_test_msg_via_mailgun(comms, cliArgs.msg)
+    # - 2 - Show CSV properties
+    if const.STORAGE_CSV in availableStorage:
+        store.storage[const.STORAGE_CSV].store_records(data)
+        _pretty_print_storage_info(
+            store.storage[const.STORAGE_CSV].serviceName,
+            store.storage[const.STORAGE_CSV].db,
+            cliArgs.recs,
+            store.storage[const.STORAGE_CSV].totalRecords,
+        )
 
     # -----------------------
-    # - 3 - Send messages via Slack
-    # if const.CHANNEL_SLACK in availableChannels:
-    #     send_test_msg_via_slack(comms, cliArgs.msg)
+    # - 3 - Show JSON properties
+    if const.STORAGE_JSON in availableStorage:
+        store.storage[const.STORAGE_JSON].store_records(data)
+        _pretty_print_storage_info(
+            store.storage[const.STORAGE_JSON].serviceName,
+            store.storage[const.STORAGE_JSON].db,
+            cliArgs.recs,
+            store.storage[const.STORAGE_JSON].totalRecords,
+        )
 
     # -----------------------
     # - 4 - Send SMS via Twilio
     # if const.CHANNEL_TWILIO in availableChannels:
-    #     send_test_msg_via_twilio(comms, cliArgs.msg)
+    #     send_test_msg_via_twilio(store, cliArgs.msg)
 
     # -----------------------
     # - 5 - Send tweets and DMs via Twitter
     # if const.CHANNEL_TWITTER in availableChannels:
-    #     send_test_msg_via_twitter(comms, cliArgs.msg)
+    #     send_test_msg_via_twitter(store, cliArgs.msg)
 
     # -----------------------
     rprint(Rule())
