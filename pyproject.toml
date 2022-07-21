@@ -21,7 +21,7 @@ Faker = "^13.7.0"
 argparse = "^1.4.0"
 rich = "^12.2.0"
 konsole = "^0.6.0"
-types-requests = "^2.27.16"
+types-requests = "^2.28.3"
 requests = "^2.27.1"
 mysql-connector-python = "^8.0.29"
 
