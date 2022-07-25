@@ -191,7 +191,7 @@ optional = false
 python-versions = "*"
 
 [package.extras]
-test = ["flake8 (==3.7.8)", "hypothesis (==3.55.3)"]
+test = ["hypothesis (==3.55.3)", "flake8 (==3.7.8)"]
 
 [[package]]
 name = "coverage"
@@ -457,7 +457,7 @@ optional = false
 python-versions = ">=3.7"
 
 [package.extras]
-dev = ["black", "flit", "mypy"]
+dev = ["mypy", "flit", "black"]
 
 [[package]]
 name = "livereload"
@@ -615,8 +615,8 @@ optional = false
 python-versions = ">=3.6"
 
 [package.extras]
-dev = ["pre-commit", "tox"]
-testing = ["pytest", "pytest-benchmark"]
+testing = ["pytest-benchmark", "pytest"]
+dev = ["tox", "pre-commit"]
 
 [[package]]
 name = "pre-commit"
@@ -997,7 +997,7 @@ docutils = "<0.18"
 sphinx = ">=1.6"
 
 [package.extras]
-dev = ["transifex-client", "sphinxcontrib-httpdomain", "bump2version"]
+dev = ["bump2version", "sphinxcontrib-httpdomain", "transifex-client"]
 
 [[package]]
 name = "sphinxcontrib-applehelp"
@@ -1008,8 +1008,8 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
 test = ["pytest"]
+lint = ["docutils-stubs", "mypy", "flake8"]
 
 [[package]]
 name = "sphinxcontrib-devhelp"
@@ -1020,8 +1020,8 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
 test = ["pytest"]
+lint = ["docutils-stubs", "mypy", "flake8"]
 
 [[package]]
 name = "sphinxcontrib-htmlhelp"
@@ -1032,8 +1032,8 @@ optional = false
 python-versions = ">=3.6"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
-test = ["pytest", "html5lib"]
+test = ["html5lib", "pytest"]
+lint = ["docutils-stubs", "mypy", "flake8"]
 
 [[package]]
 name = "sphinxcontrib-jsmath"
@@ -1044,7 +1044,7 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-test = ["pytest", "flake8", "mypy"]
+test = ["mypy", "flake8", "pytest"]
 
 [[package]]
 name = "sphinxcontrib-qthelp"
@@ -1055,8 +1055,8 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
 test = ["pytest"]
+lint = ["docutils-stubs", "mypy", "flake8"]
 
 [[package]]
 name = "sphinxcontrib-serializinghtml"
@@ -1127,7 +1127,7 @@ test = ["pytest", "typing-extensions", "mypy"]
 
 [[package]]
 name = "types-requests"
-version = "2.27.29"
+version = "2.28.4"
 description = "Typing stubs for requests"
 category = "main"
 optional = false
@@ -1218,7 +1218,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "88bb2a15d2b2b58f5c1f1b115a40de761036ddb11a35c68ce6d3810ff0bdcacf"
+content-hash = "98a2f42d78655e06f5d4a9b50b46942252ed20e8a8a9fdf159a2775d5b36d4c1"
 
 [metadata.files]
 alabaster = [
@@ -1847,8 +1847,8 @@ typeguard = [
     {file = "typeguard-2.13.3.tar.gz", hash = "sha256:00edaa8da3a133674796cf5ea87d9f4b4c367d77476e185e80251cc13dfbb8c4"},
 ]
 types-requests = [
-    {file = "types-requests-2.27.29.tar.gz", hash = "sha256:fb453b3a76a48eca66381cea8004feaaea12835e838196f5c7ac87c75c5c19ef"},
-    {file = "types_requests-2.27.29-py3-none-any.whl", hash = "sha256:014f4f82db7b96c41feea9adaea30e68cd64c230eeab34b70c29bebb26ec74ac"},
+    {file = "types-requests-2.28.4.tar.gz", hash = "sha256:1b9bedd60e789db62b73a4a5e5f5a78c3106e535ad69faba97b0bbdb1ea36b8f"},
+    {file = "types_requests-2.28.4-py3-none-any.whl", hash = "sha256:3ded964449fbd695ab0f8570828e2fa7cb120c3ebe8cac520e7db5834d2c8e75"},
 ]
 types-urllib3 = [
     {file = "types-urllib3-1.26.15.tar.gz", hash = "sha256:c89283541ef92e344b7f59f83ea9b5a295b16366ceee3f25ecfc5593c79f794e"},
